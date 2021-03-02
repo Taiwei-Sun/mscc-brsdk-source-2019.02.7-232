@@ -1,0 +1,24 @@
+---
+defconfig_name: "mscc_stage1_ocelot_defconfig"
+append_files:
+    - config_file: "configs/mscc_stage1_ocelot_defconfig"
+      files:
+        - br_target_mips.config
+        - br_target_stage1.config
+        - br_toolchain_mips_uclib.config
+        - br_uboot.config
+        - br_board_ocelot.config
+        - br_linux.config
+        - br_tuning.config
+    - config_file: "board/ocelot/ocelot_kernel.config"
+      files:
+        - linux.config
+        - linux_iptables.config
+        - linux_ocelot.config
+    - config_file: "board/ocelot/ocelot_uboot.config"
+      files:
+        - uboot_ocelot.config
+output_packet: "mscc-brsdk-mipsel"
+output_path: "mipsel-mips32r2-linux-uclibc/ocelot"
+uboot_name: "uboot_ocelot.bin"
+arch: "mips"

@@ -1,0 +1,8 @@
+config BR2_PACKAGE_MSCC_MODULAR_FIRMWARE
+	bool "mscc-modular-firmware"
+	select BR2_STATIC_LIBS
+	select BR2_PACKAGE_ZLIB
+	select BR2_PACKAGE_MBEDTLS
+	help
+	  Executable for loading mscc-firmware
+

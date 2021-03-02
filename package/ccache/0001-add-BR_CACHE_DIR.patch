@@ -1,0 +1,20 @@
+diff -u host-ccache-3.2.4/ccache.c output-mips-stage1/build/host-ccache-3.2.4/ccache.c
+--- host-ccache-3.2.4/ccache.c	2015-10-08 21:14:23.000000000 +0200
++++ output-mips-stage1/build/host-ccache-3.2.4/ccache.c	2016-03-08 10:30:44.978280516 +0100
+@@ -2812,7 +2812,11 @@
+ 		if (str_eq(conf->cache_dir, "")) {
+ 			fatal("configuration setting \"cache_dir\" must not be the empty string");
+ 		}
+-		if ((p = getenv("CCACHE_DIR"))) {
++		if ((p = getenv("BR_CACHE_DIR"))) {
++			free(conf->cache_dir);
++			conf->cache_dir = strdup(p);
++		}
++		else if ((p = getenv("CCACHE_DIR"))) {
+ 			free(conf->cache_dir);
+ 			conf->cache_dir = strdup(p);
+ 		}
+Only in output-mips-stage1/build/host-ccache-3.2.4/: ccache.c~
+Common subdirectories: host-ccache-3.2.4/.deps and output-mips-stage1/build/host-ccache-3.2.4/.deps
+Common subdirectories: host-ccache-3.2.4/test and output-mips-stage1/build/host-ccache-3.2.4/test
+Common subdirectories: host-ccache-3.2.4/zlib and output-mips-stage1/build/host-ccache-3.2.4/zlib

@@ -1,0 +1,15 @@
+---
+defconfig_name: "mscc_bbb_defconfig"
+append_files:
+    - config_file: "configs/mscc_bbb_defconfig"
+      files:
+        - br_target_arm.config
+        - br_toolchain_arm_glib.config
+        - br_tuning.config
+        - br_bbb.config
+    - config_file: "board/beaglebone/bbb_kernel.config"
+      files:
+        - linux_bbb.config
+output_packet: "mscc-brsdk-arm"
+output_path: "arm-cortex_a8-linux-gnu/bbb"
+arch: "arm"

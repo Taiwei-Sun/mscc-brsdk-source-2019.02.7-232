@@ -1,0 +1,31 @@
+AA-11345: Add signal handler for SIGINT to ping to handle user pressing Ctrl-C
+while the program is trying to resolve a hostname.
+
+diff --git a/networking/ping.c b/networking/ping.c
+index 8f85d3ec2..762b4f084 100644
+--- a/networking/ping.c
++++ b/networking/ping.c
+@@ -459,6 +459,12 @@ static void print_stats_and_exit(int junk UNUSED_PARAM)
+ 	exit(nrecv == 0 || (G.deadline_us && nrecv < pingcount));
+ }
+ 
++static void error_exit(int junk) NORETURN;
++static void error_exit(int junk UNUSED_PARAM)
++{
++	exit(1);
++}
++
+ static void sendping_tail(void (*sp)(int), int size_pkt)
+ {
+ 	int sz;
+@@ -911,6 +917,10 @@ static int common_ping_main(int opt, char **argv)
+ 		G.deadline_us = 1 | ((d * 1000000) + monotonic_us());
+ 	}
+ 
++	/* Set SIGINT here as resolving a hostname may take a while and the 
++	 * user may abort this with Ctrl-C. */
++	signal(SIGINT, error_exit);
++
+ 	myid = (uint16_t) getpid();
+ 	hostname = argv[optind];
+ #if ENABLE_PING6

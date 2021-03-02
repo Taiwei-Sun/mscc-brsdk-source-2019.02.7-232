@@ -1,0 +1,17 @@
+---
+defconfig_name: "mscc_stage2_debug_defconfig"
+append_files:
+    - config_file: "configs/mscc_stage2_debug_defconfig"
+      files:
+        - br_target_mips.config
+        - br_target_stage2.config
+        - br_toolchain_mips_glib.config
+        - br_tuning.config
+        - br_busybox_debug.config
+        - br_uboot_tools.config
+    - config_file: "package/busybox/mscc_fragment.config"
+      files:
+        - busybox_fragment.config
+output_packet: "mscc-brsdk-mipsel"
+output_path: "mipsel-mips32r2-linux-gnu/debug"
+arch: "mips"

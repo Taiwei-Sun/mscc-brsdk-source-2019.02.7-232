@@ -1,0 +1,112 @@
+1575896311.558012645:start:download            : toolchain-external
+1575896311.567490891:end  :download            : toolchain-external
+1575896311.603631201:start:download            : host-skeleton
+1575896311.607435254:end  :download            : host-skeleton
+1575896311.624068085:start:download            : skeleton
+1575896311.656288067:end  :download            : skeleton
+1575896311.671684828:start:download            : skeleton-init-sysv
+1575896312.398105468:end  :download            : skeleton-init-sysv
+1575896312.411144949:start:download            : skeleton-init-common
+1575896312.413900799:end  :download            : skeleton-init-common
+1575896312.426495214:start:download            : toolchain-external-custom
+1575896312.430018415:end  :download            : toolchain-external-custom
+1575896312.454340741:start:download            : toolchain
+1575896312.458584003:end  :download            : toolchain
+1575896312.498091545:start:download            : busybox
+1575896312.599467288:end  :download            : busybox
+1575896312.664997191:start:download            : mtd
+1575896312.787368450:end  :download            : mtd
+1575896312.809157505:start:download            : ntp
+1575896313.051662136:end  :download            : ntp
+1575896313.088105919:start:download            : host-autoconf
+1575896313.171424040:end  :download            : host-autoconf
+1575896313.188463167:start:download            : host-libtool
+1575896313.269518949:end  :download            : host-libtool
+1575896313.305535177:start:download            : host-m4
+1575896313.329916352:end  :download            : host-m4
+1575896313.363304914:start:download            : host-automake
+1575896313.437073852:end  :download            : host-automake
+1575896313.456883122:start:download            : host-pkgconf
+1575896313.499808045:end  :download            : host-pkgconf
+1575896313.524925431:start:download            : libevent
+1575896313.603496144:end  :download            : libevent
+1575896313.615467315:start:download            : dhcp
+1575896313.780023460:end  :download            : dhcp
+1575896313.791910045:start:download            : dropbear
+1575896313.813276821:end  :download            : dropbear
+1575896313.829746922:start:download            : host-dtc
+1575896313.844510295:end  :download            : host-dtc
+1575896313.859335538:start:download            : host-bison
+1575896313.891768859:end  :download            : host-bison
+1575896313.908125775:start:download            : host-flex
+1575896313.933437466:end  :download            : host-flex
+1575896313.951438337:start:download            : host-gettext
+1575896314.002080329:end  :download            : host-gettext
+1575896314.015934891:start:download            : host-libxml2
+1575896314.055838797:end  :download            : host-libxml2
+1575896314.074190034:start:download            : hiawatha
+1575896314.130728591:end  :download            : hiawatha
+1575896314.152941129:start:download            : mbedtls
+1575896314.199492940:end  :download            : mbedtls
+1575896314.218671696:start:download            : zlib
+1575896314.222352710:end  :download            : zlib
+1575896314.238412287:start:download            : libzlib
+1575896314.255347508:end  :download            : libzlib
+1575896314.272382685:start:download            : ifupdown-scripts
+1575896314.276269038:end  :download            : ifupdown-scripts
+1575896314.291408581:start:download            : initscripts
+1575896314.294630370:end  :download            : initscripts
+1575896314.310342126:start:download            : iptables
+1575896314.333052165:end  :download            : iptables
+1575896314.349286294:start:download            : json-c
+1575896314.498279664:end  :download            : json-c
+1575896314.514389342:start:download            : libcurl
+1575896314.545756185:end  :download            : libcurl
+1575896314.557727340:start:download            : libssh2
+1575896314.576284669:end  :download            : libssh2
+1575896314.593639269:start:download            : libfcgi
+1575896314.828656388:end  :download            : libfcgi
+1575896314.846883159:start:download            : libnet
+1575896314.958002575:end  :download            : libnet
+1575896314.990900437:start:download            : libupnp
+1575896315.039622869:end  :download            : libupnp
+1575896315.055937972:start:download            : netsnmp
+1575896315.211808907:end  :download            : netsnmp
+1575896315.235982923:start:download            : host-patchelf
+1575896315.267450709:end  :download            : host-patchelf
+1575896315.284012947:start:download            : uboot-tools
+1575896315.360196388:end  :download            : uboot-tools
+1575896315.375551734:start:download            : host-uboot-tools
+1575896315.524087663:end  :download            : host-uboot-tools
+1575896315.543981041:start:download            : host-openssl
+1575896315.551163473:end  :download            : host-openssl
+1575896315.572678752:start:download            : host-libopenssl
+1575896315.838932039:end  :download            : host-libopenssl
+1575896315.860201138:start:download            : host-zlib
+1575896315.867340383:end  :download            : host-zlib
+1575896315.890777890:start:download            : host-libzlib
+1575896315.949405940:end  :download            : host-libzlib
+1575896315.964881043:start:download            : xz-embedded
+1575896316.002763677:end  :download            : xz-embedded
+1575896316.035490399:start:download            : linux
+1575896360.446584001:end  :download            : linux
+1575896360.464315559:start:download            : host-kmod
+1575896361.068034499:end  :download            : host-kmod
+1575896361.085734614:start:download            : host-squashfs
+1575896361.098712872:end  :download            : host-squashfs
+1575896361.118129133:start:download            : host-lz4
+1575896361.147400111:end  :download            : host-lz4
+1575896361.163048572:start:download            : host-lzo
+1575896361.184690821:end  :download            : host-lzo
+1575896361.206353034:start:download            : host-xz
+1575896361.235469658:end  :download            : host-xz
+1575896361.255135706:start:download            : host-zstd
+1575896361.289965422:end  :download            : host-zstd
+1575896361.309934350:start:download            : host-fakeroot
+1575896361.334818737:end  :download            : host-fakeroot
+1575896361.356280195:start:download            : host-acl
+1575896361.376692749:end  :download            : host-acl
+1575896361.392386701:start:download            : host-attr
+1575896361.406888642:end  :download            : host-attr
+1575896361.431212710:start:download            : host-makedevs
+1575896361.434516005:end  :download            : host-makedevs

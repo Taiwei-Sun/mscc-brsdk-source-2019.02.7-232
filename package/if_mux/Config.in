@@ -1,0 +1,38 @@
+config BR2_PACKAGE_IF_MUX
+	bool "if-mux"
+	depends on BR2_LINUX_KERNEL
+	help
+	  Kernel module for if_mux
+
+          If_mux is a Linux kernel module for the MSCC Ethernet switch
+          virtual mux driver.
+
+	  Make sure your target kernel has the following config
+	  options enabled:
+
+	    * CONFIG_MODULES: loadable module support
+
+comment "if-mux needs a Linux kernel to be built"
+	depends on !BR2_LINUX_KERNEL
+
+if BR2_PACKAGE_IF_MUX
+choice
+        prompt "Switch type"
+
+config BR2_PACKAGE_IF_MUX_TYPE_CARACAL
+        bool "Caracal-1/2, Luton-26"
+
+config BR2_PACKAGE_IF_MUX_TYPE_SERVAL1
+        bool "Serval-1"
+
+config BR2_PACKAGE_IF_MUX_TYPE_OCELOT
+        bool "Ocelot"
+
+config BR2_PACKAGE_IF_MUX_TYPE_JAGUAR2C
+        bool "Jaguar-2 (Serval-2, Jaguar-2-24, Jaguar-2-48)"
+
+config BR2_PACKAGE_IF_MUX_TYPE_SERVALT
+        bool "Serval-T"
+
+endchoice
+endif

@@ -1,0 +1,8 @@
+config BR2_PACKAGE_XZ_EMBEDDED
+	bool "xz-embedded"
+	help
+          XZ Embedded is a relatively small decompressor for the .xz
+          file format. It was developed with the Linux kernel in mind,
+          but it is easily usable in other projects too.
+
+	  http://tukaani.org/xz/embedded.html

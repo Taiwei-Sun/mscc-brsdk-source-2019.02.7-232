@@ -1,0 +1,552 @@
+diff --git a/include/libunwind-common.h.in b/include/libunwind-common.h.in
+index fa753ba..3d07e28 100644
+--- a/include/libunwind-common.h.in
++++ b/include/libunwind-common.h.in
+@@ -180,6 +180,10 @@ typedef struct unw_accessors
+        NULL.  */
+     int (*get_proc_name) (unw_addr_space_t, unw_word_t, char *, size_t,
+ 			  unw_word_t *, void *);
++
++    /* Optional call back to obtain the image name given a program counter.
++     * This callback is optional and may be set to NULL.  */
++    int (*get_image_name) (unw_addr_space_t, unw_word_t, char *, size_t, void *);
+   }
+ unw_accessors_t;
+ 
+@@ -224,6 +228,7 @@ unw_save_loc_t;
+ #define unw_is_signal_frame	UNW_OBJ(is_signal_frame)
+ #define unw_handle_signal_frame	UNW_OBJ(handle_signal_frame)
+ #define unw_get_proc_name	UNW_OBJ(get_proc_name)
++#define unw_get_image_name	UNW_OBJ(get_image_name)
+ #define unw_set_caching_policy	UNW_OBJ(set_caching_policy)
+ #define unw_regname		UNW_ARCH_OBJ(regname)
+ #define unw_flush_cache		UNW_ARCH_OBJ(flush_cache)
+@@ -251,6 +256,7 @@ extern int unw_get_save_loc (unw_cursor_t *, int, unw_save_loc_t *);
+ extern int unw_is_signal_frame (unw_cursor_t *);
+ extern int unw_handle_signal_frame (unw_cursor_t *);
+ extern int unw_get_proc_name (unw_cursor_t *, char *, size_t, unw_word_t *);
++extern int unw_get_image_name (unw_cursor_t *, char *, size_t);
+ extern const char *unw_strerror (int);
+ extern int unw_backtrace (void **, int);
+ 
+diff --git a/include/libunwind-ptrace.h b/include/libunwind-ptrace.h
+index 801325c..56bcc95 100644
+--- a/include/libunwind-ptrace.h
++++ b/include/libunwind-ptrace.h
+@@ -52,6 +52,8 @@ extern int _UPT_access_fpreg (unw_addr_space_t, unw_regnum_t, unw_fpreg_t *,
+                               int, void *);
+ extern int _UPT_get_proc_name (unw_addr_space_t, unw_word_t, char *, size_t,
+                                unw_word_t *, void *);
++extern int _UPT_get_image_name (unw_addr_space_t, unw_word_t, char *, size_t,
++                                void *);
+ extern int _UPT_resume (unw_addr_space_t, unw_cursor_t *, void *);
+ extern unw_accessors_t _UPT_accessors;
+ 
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 5d87475..da4bfb9 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -47,7 +47,7 @@ libunwind_ptrace_la_SOURCES =						  \
+ 	ptrace/_UPT_access_mem.c ptrace/_UPT_access_reg.c		  \
+ 	ptrace/_UPT_create.c ptrace/_UPT_destroy.c			  \
+ 	ptrace/_UPT_find_proc_info.c ptrace/_UPT_get_dyn_info_list_addr.c \
+-	ptrace/_UPT_put_unwind_info.c ptrace/_UPT_get_proc_name.c	  \
++	ptrace/_UPT_put_unwind_info.c ptrace/_UPT_get_proc_name.c ptrace/_UPT_get_image_name.c \
+ 	ptrace/_UPT_reg_offset.c ptrace/_UPT_resume.c
+ noinst_HEADERS += ptrace/_UPT_internal.h
+ 
+@@ -105,7 +105,7 @@ libunwind_la_SOURCES_common =					\
+ libunwind_la_SOURCES_generic =						\
+ 	mi/Gdyn-extract.c mi/Gdyn-remote.c mi/Gfind_dynamic_proc_info.c	\
+ 	mi/Gget_accessors.c						\
+-	mi/Gget_proc_info_by_ip.c mi/Gget_proc_name.c			\
++	mi/Gget_proc_info_by_ip.c mi/Gget_proc_name.c mi/Gget_image_name.c \
+ 	mi/Gput_dynamic_unwind_info.c mi/Gdestroy_addr_space.c		\
+ 	mi/Gget_reg.c mi/Gset_reg.c					\
+ 	mi/Gget_fpreg.c mi/Gset_fpreg.c					\
+@@ -133,7 +133,7 @@ libunwind_la_SOURCES_local_nounwind =					\
+ 	mi/dyn-cancel.c mi/dyn-info-list.c mi/dyn-register.c		\
+ 	mi/Ldyn-extract.c mi/Lfind_dynamic_proc_info.c			\
+ 	mi/Lget_accessors.c						\
+-	mi/Lget_proc_info_by_ip.c mi/Lget_proc_name.c			\
++	mi/Lget_proc_info_by_ip.c mi/Lget_proc_name.c mi/Lget_image_name.c \
+ 	mi/Lput_dynamic_unwind_info.c mi/Ldestroy_addr_space.c		\
+ 	mi/Lget_reg.c   mi/Lset_reg.c					\
+ 	mi/Lget_fpreg.c mi/Lset_fpreg.c					\
+diff --git a/src/aarch64/Ginit.c b/src/aarch64/Ginit.c
+index b9181ef..a71b0c0 100644
+--- a/src/aarch64/Ginit.c
++++ b/src/aarch64/Ginit.c
+@@ -168,6 +168,13 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
+   return _Uelf64_get_proc_name (as, getpid (), ip, buf, buf_len, offp);
+ }
+ 
++static int
++get_static_image_name (unw_addr_space_t as, unw_word_t ip,
++                       char *buf, size_t buf_len, void *arg)
++{
++  return _Uelf64_get_image_name (as, getpid (), ip, buf, buf_len);
++}
++
+ HIDDEN void
+ aarch64_local_addr_space_init (void)
+ {
+@@ -181,6 +188,7 @@ aarch64_local_addr_space_init (void)
+   local_addr_space.acc.access_fpreg = access_fpreg;
+   local_addr_space.acc.resume = aarch64_local_resume;
+   local_addr_space.acc.get_proc_name = get_static_proc_name;
++  local_addr_space.acc.get_image_name = get_static_image_name;
+   local_addr_space.big_endian = (__BYTE_ORDER == __BIG_ENDIAN);
+   unw_flush_cache (&local_addr_space, 0, 0);
+ }
+diff --git a/src/arm/Ginit.c b/src/arm/Ginit.c
+index 1ed3dbf..38b42ed 100644
+--- a/src/arm/Ginit.c
++++ b/src/arm/Ginit.c
+@@ -216,6 +216,13 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
+   return _Uelf32_get_proc_name (as, getpid (), ip, buf, buf_len, offp);
+ }
+ 
++static int
++get_static_image_name (unw_addr_space_t as, unw_word_t ip,
++                      char *buf, size_t buf_len, void *arg)
++{
++  return _Uelf32_get_image_name (as, getpid (), ip, buf, buf_len);
++}
++
+ HIDDEN void
+ arm_local_addr_space_init (void)
+ {
+@@ -229,6 +236,7 @@ arm_local_addr_space_init (void)
+   local_addr_space.acc.access_fpreg = access_fpreg;
+   local_addr_space.acc.resume = arm_local_resume;
+   local_addr_space.acc.get_proc_name = get_static_proc_name;
++  local_addr_space.acc.get_image_name = get_static_image_name;
+   unw_flush_cache (&local_addr_space, 0, 0);
+ }
+ 
+diff --git a/src/coredump/_UCD_accessors.c b/src/coredump/_UCD_accessors.c
+index f081180..235486c 100644
+--- a/src/coredump/_UCD_accessors.c
++++ b/src/coredump/_UCD_accessors.c
+@@ -32,5 +32,6 @@ PROTECTED unw_accessors_t _UCD_accessors =
+     .access_reg                 = _UCD_access_reg,
+     .access_fpreg               = _UCD_access_fpreg,
+     .resume                     = _UCD_resume,
+-    .get_proc_name              = _UCD_get_proc_name
++    .get_proc_name              = _UCD_get_proc_name,
++    .get_image_name             = NULL
+   };
+diff --git a/src/elfxx.c b/src/elfxx.c
+index 33fccba..73567c7 100644
+--- a/src/elfxx.c
++++ b/src/elfxx.c
+@@ -357,3 +357,26 @@ elf_w (get_proc_name) (unw_addr_space_t as, pid_t pid, unw_word_t ip,
+ 
+   return ret;
+ }
++
++HIDDEN int
++elf_w (get_image_name) (unw_addr_space_t as, pid_t pid, unw_word_t ip,
++                        char *buf, size_t buf_len)
++{
++  unsigned long segbase, mapoff;
++  struct elf_image ei;
++  int ret;
++  char path[PATH_MAX];
++
++  ret = tdep_get_elf_image (&ei, pid, ip, &segbase, &mapoff, path, sizeof(path));
++  if (ret < 0)
++    return ret;
++
++  strncpy (buf, path, buf_len);
++  buf[buf_len - 1] = '\0';
++  ret = strlen(path) >= buf_len ? -UNW_ENOMEM : 0;
++
++  munmap (ei.image, ei.size);
++  ei.image = NULL;
++
++  return ret;
++}
+diff --git a/src/elfxx.h b/src/elfxx.h
+index cef6647..ce61d14 100644
+--- a/src/elfxx.h
++++ b/src/elfxx.h
+@@ -47,6 +47,10 @@ extern int elf_w (get_proc_name) (unw_addr_space_t as,
+                                   char *buf, size_t len,
+                                   unw_word_t *offp);
+ 
++extern int elf_w (get_image_name) (unw_addr_space_t as,
++                                   pid_t pid, unw_word_t ip,
++                                   char *buf, size_t len);
++
+ extern int elf_w (get_proc_name_in_image) (unw_addr_space_t as,
+                                            struct elf_image *ei,
+                                            unsigned long segbase,
+diff --git a/src/hppa/Ginit.c b/src/hppa/Ginit.c
+index 89ad51c..b222b4f 100644
+--- a/src/hppa/Ginit.c
++++ b/src/hppa/Ginit.c
+@@ -175,6 +175,13 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
+   return _Uelf32_get_proc_name (as, getpid (), ip, buf, buf_len, offp);
+ }
+ 
++static int
++get_static_image_name (unw_addr_space_t as, unw_word_t ip,
++                       char *buf, size_t buf_len, void *arg)
++{
++  return _Uelf32_get_image_name (as, getpid (), ip, buf, buf_len);
++}
++
+ HIDDEN void
+ hppa_local_addr_space_init (void)
+ {
+@@ -188,6 +195,7 @@ hppa_local_addr_space_init (void)
+   local_addr_space.acc.access_fpreg = access_fpreg;
+   local_addr_space.acc.resume = hppa_local_resume;
+   local_addr_space.acc.get_proc_name = get_static_proc_name;
++  local_addr_space.acc.get_image_name = get_static_image_name;
+   unw_flush_cache (&local_addr_space, 0, 0);
+ }
+ 
+diff --git a/src/ia64/Ginit.c b/src/ia64/Ginit.c
+index 7b64f0c..dbeeff1 100644
+--- a/src/ia64/Ginit.c
++++ b/src/ia64/Ginit.c
+@@ -351,6 +351,13 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
+   return _Uelf64_get_proc_name (as, getpid (), ip, buf, buf_len, offp);
+ }
+ 
++static int
++get_static_image_name (unw_addr_space_t as, unw_word_t ip,
++                       char *buf, size_t buf_len, void *arg)
++{
++  return _Uelf64_get_image_name (as, getpid (), ip, buf, buf_len);
++}
++
+ HIDDEN void
+ ia64_local_addr_space_init (void)
+ {
+@@ -370,6 +377,7 @@ ia64_local_addr_space_init (void)
+   local_addr_space.acc.access_fpreg = access_fpreg;
+   local_addr_space.acc.resume = ia64_local_resume;
+   local_addr_space.acc.get_proc_name = get_static_proc_name;
++  local_addr_space.acc.get_image_name = get_static_image_name;
+   unw_flush_cache (&local_addr_space, 0, 0);
+ }
+ 
+diff --git a/src/mi/Gget_image_name.c b/src/mi/Gget_image_name.c
+index e69de29..f751d74 100644
+--- a/src/mi/Gget_image_name.c
++++ b/src/mi/Gget_image_name.c
+@@ -0,0 +1,58 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2001-2005 Hewlett-Packard Co
++        Contributed by David Mosberger-Tang <davidm@hpl.hp.com>
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "libunwind_i.h"
++#include "remote.h"
++
++static inline int
++get_image_name (unw_addr_space_t as, unw_word_t ip,
++                char *buf, size_t buf_len, void *arg)
++{
++  unw_accessors_t *a = unw_get_accessors (as);
++
++  buf[0] = '\0';        /* always return a valid string, even if it's empty */
++
++  /* Dynamic not supported */
++
++  if (a->get_image_name)
++    return (*a->get_image_name) (as, ip, buf, buf_len, arg);
++
++  return -UNW_ENOINFO;
++}
++
++PROTECTED int
++unw_get_image_name (unw_cursor_t *cursor, char *buf, size_t buf_len)
++{
++  struct cursor *c = (struct cursor *) cursor;
++  unw_word_t ip;
++  int error;
++
++  ip = tdep_get_ip (c);
++  if (c->dwarf.use_prev_instr)
++    --ip;
++  error = get_image_name (tdep_get_as (c), ip, buf, buf_len,
++                          tdep_get_as_arg (c));
++  return error;
++}
+diff --git a/src/mi/Lget_image_name.c b/src/mi/Lget_image_name.c
+index e69de29..1582037 100644
+--- a/src/mi/Lget_image_name.c
++++ b/src/mi/Lget_image_name.c
+@@ -0,0 +1,5 @@
++#define UNW_LOCAL_ONLY
++#include <libunwind.h>
++#if defined(UNW_LOCAL_ONLY) && !defined(UNW_REMOTE_ONLY)
++#include "Gget_image_name.c"
++#endif
+diff --git a/src/mips/Ginit.c b/src/mips/Ginit.c
+index 8290c40..0e84747 100644
+--- a/src/mips/Ginit.c
++++ b/src/mips/Ginit.c
+@@ -180,6 +180,14 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
+   return elf_w (get_proc_name) (as, getpid (), ip, buf, buf_len, offp);
+ }
+ 
++static int
++get_static_image_name (unw_addr_space_t as, unw_word_t ip,
++                       char *buf, size_t buf_len, void *arg)
++{
++
++  return elf_w (get_image_name) (as, getpid (), ip, buf, buf_len);
++}
++
+ HIDDEN void
+ mips_local_addr_space_init (void)
+ {
+@@ -204,6 +212,7 @@ mips_local_addr_space_init (void)
+   local_addr_space.acc.access_fpreg = access_fpreg;
+   local_addr_space.acc.resume = NULL;  /* mips_local_resume?  FIXME!  */
+   local_addr_space.acc.get_proc_name = get_static_proc_name;
++  local_addr_space.acc.get_image_name = get_static_image_name;
+   unw_flush_cache (&local_addr_space, 0, 0);
+ }
+ 
+diff --git a/src/ppc32/Ginit.c b/src/ppc32/Ginit.c
+index f2e6e82..78159bc 100644
+--- a/src/ppc32/Ginit.c
++++ b/src/ppc32/Ginit.c
+@@ -197,6 +197,13 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
+   return _Uelf32_get_proc_name (as, getpid (), ip, buf, buf_len, offp);
+ }
+ 
++static int
++get_static_image_name (unw_addr_space_t as, unw_word_t ip,
++                      char *buf, size_t buf_len, void *arg)
++{
++  return _Uelf32_get_image_name (as, getpid (), ip, buf, buf_len);
++}
++
+ HIDDEN void
+ ppc32_local_addr_space_init (void)
+ {
+@@ -210,6 +217,7 @@ ppc32_local_addr_space_init (void)
+   local_addr_space.acc.access_fpreg = access_fpreg;
+   local_addr_space.acc.resume = ppc32_local_resume;
+   local_addr_space.acc.get_proc_name = get_static_proc_name;
++  local_addr_space.acc.get_image_name = get_static_image_name;
+   unw_flush_cache (&local_addr_space, 0, 0);
+ }
+ 
+diff --git a/src/ppc64/Ginit.c b/src/ppc64/Ginit.c
+index 0740961..60aff16 100644
+--- a/src/ppc64/Ginit.c
++++ b/src/ppc64/Ginit.c
+@@ -206,6 +206,13 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
+   return _Uelf64_get_proc_name (as, getpid (), ip, buf, buf_len, offp);
+ }
+ 
++static int
++get_static_image_name (unw_addr_space_t as, unw_word_t ip,
++                       char *buf, size_t buf_len, void *arg)
++{
++  return _Uelf64_get_image_name (as, getpid (), ip, buf, buf_len);
++}
++
+ HIDDEN void
+ ppc64_local_addr_space_init (void)
+ {
+@@ -225,6 +232,7 @@ ppc64_local_addr_space_init (void)
+   local_addr_space.acc.access_fpreg = access_fpreg;
+   local_addr_space.acc.resume = ppc64_local_resume;
+   local_addr_space.acc.get_proc_name = get_static_proc_name;
++  local_addr_space.acc.get_image_name = get_static_image_name;
+   unw_flush_cache (&local_addr_space, 0, 0);
+ }
+ 
+diff --git a/src/ptrace/_UPT_accessors.c b/src/ptrace/_UPT_accessors.c
+index 3190e78..e15989e 100644
+--- a/src/ptrace/_UPT_accessors.c
++++ b/src/ptrace/_UPT_accessors.c
+@@ -34,5 +34,6 @@ PROTECTED unw_accessors_t _UPT_accessors =
+     .access_reg                 = _UPT_access_reg,
+     .access_fpreg               = _UPT_access_fpreg,
+     .resume                     = _UPT_resume,
+-    .get_proc_name              = _UPT_get_proc_name
++    .get_proc_name              = _UPT_get_proc_name,
++    .get_image_name             = _UPT_get_image_name
+   };
+diff --git a/src/ptrace/_UPT_get_image_name.c b/src/ptrace/_UPT_get_image_name.c
+index e69de29..efd38a1 100644
+--- a/src/ptrace/_UPT_get_image_name.c
++++ b/src/ptrace/_UPT_get_image_name.c
+@@ -0,0 +1,42 @@
++/* libunwind - a platform-independent unwind library
++   Copyright (C) 2003 Hewlett-Packard Co
++   Copyright (C) 2007 David Mosberger-Tang
++        Contributed by David Mosberger-Tang <dmosberger@gmail.com>
++
++This file is part of libunwind.
++
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of this software and associated documentation files (the
++"Software"), to deal in the Software without restriction, including
++without limitation the rights to use, copy, modify, merge, publish,
++distribute, sublicense, and/or sell copies of the Software, and to
++permit persons to whom the Software is furnished to do so, subject to
++the following conditions:
++
++The above copyright notice and this permission notice shall be
++included in all copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
++LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
++OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
++WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
++
++#include "_UPT_internal.h"
++
++int
++_UPT_get_image_name (unw_addr_space_t as, unw_word_t ip,
++                     char *buf, size_t buf_len, void *arg)
++{
++  struct UPT_info *ui = arg;
++
++#if ELF_CLASS == ELFCLASS64
++  return _Uelf64_get_image_name (as, ui->pid, ip, buf, buf_len);
++#elif ELF_CLASS == ELFCLASS32
++  return _Uelf32_get_image_name (as, ui->pid, ip, buf, buf_len);
++#else
++  return -UNW_ENOINFO;
++#endif
++}
+diff --git a/src/sh/Ginit.c b/src/sh/Ginit.c
+index b380db1..51a4f3c 100644
+--- a/src/sh/Ginit.c
++++ b/src/sh/Ginit.c
+@@ -167,6 +167,13 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
+   return _Uelf32_get_proc_name (as, getpid (), ip, buf, buf_len, offp);
+ }
+ 
++static int
++get_static_image_name (unw_addr_space_t as, unw_word_t ip,
++                       char *buf, size_t buf_len, void *arg)
++{
++  return _Uelf32_get_image_name (as, getpid (), ip, buf, buf_len);
++}
++
+ HIDDEN void
+ sh_local_addr_space_init (void)
+ {
+@@ -180,6 +187,7 @@ sh_local_addr_space_init (void)
+   local_addr_space.acc.access_fpreg = access_fpreg;
+   local_addr_space.acc.resume = sh_local_resume;
+   local_addr_space.acc.get_proc_name = get_static_proc_name;
++  local_addr_space.acc.get_image_name = get_static_image_name;
+   unw_flush_cache (&local_addr_space, 0, 0);
+ }
+ 
+diff --git a/src/tilegx/Ginit.c b/src/tilegx/Ginit.c
+index df3ffca..87d81dd 100644
+--- a/src/tilegx/Ginit.c
++++ b/src/tilegx/Ginit.c
+@@ -144,6 +144,13 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
+   return elf_w (get_proc_name) (as, getpid (), ip, buf, buf_len, offp);
+ }
+ 
++static int
++get_static_image_name (unw_addr_space_t as, unw_word_t ip,
++                      char *buf, size_t buf_len, void *arg)
++{
++  return elf_w (get_image_name) (as, getpid (), ip, buf, buf_len);
++}
++
+ __attribute__((weak)) void
+ tilegx_local_addr_space_init (void)
+ {
+@@ -161,6 +168,7 @@ tilegx_local_addr_space_init (void)
+   local_addr_space.acc.access_fpreg = NULL;
+   local_addr_space.acc.resume = tilegx_local_resume;
+   local_addr_space.acc.get_proc_name = get_static_proc_name;
++  local_addr_space.acc.get_image_name = get_static_image_name;
+   unw_flush_cache (&local_addr_space, 0, 0);
+ }
+ 
+diff --git a/src/x86/Ginit.c b/src/x86/Ginit.c
+index b05a08e..a1e092b 100644
+--- a/src/x86/Ginit.c
++++ b/src/x86/Ginit.c
+@@ -224,6 +224,13 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
+   return _Uelf32_get_proc_name (as, getpid (), ip, buf, buf_len, offp);
+ }
+ 
++static int
++get_static_image_name (unw_addr_space_t as, unw_word_t ip,
++                       char *buf, size_t buf_len, void *arg)
++{
++  return _Uelf32_get_image_name (as, getpid (), ip, buf, buf_len);
++}
++
+ HIDDEN void
+ x86_local_addr_space_init (void)
+ {
+@@ -237,6 +244,7 @@ x86_local_addr_space_init (void)
+   local_addr_space.acc.access_fpreg = access_fpreg;
+   local_addr_space.acc.resume = x86_local_resume;
+   local_addr_space.acc.get_proc_name = get_static_proc_name;
++  local_addr_space.acc.get_image_name = get_static_image_name;
+   unw_flush_cache (&local_addr_space, 0, 0);
+ }
+ 
+diff --git a/src/x86_64/Ginit.c b/src/x86_64/Ginit.c
+index 6e9d4fe..56f3de2 100644
+--- a/src/x86_64/Ginit.c
++++ b/src/x86_64/Ginit.c
+@@ -249,6 +249,13 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
+   return _Uelf64_get_proc_name (as, getpid (), ip, buf, buf_len, offp);
+ }
+ 
++static int
++get_static_image_name (unw_addr_space_t as, unw_word_t ip,
++                       char *buf, size_t buf_len, void *arg)
++{
++  return _Uelf64_get_image_name (as, getpid (), ip, buf, buf_len);
++}
++
+ HIDDEN void
+ x86_64_local_addr_space_init (void)
+ {
+@@ -262,6 +269,7 @@ x86_64_local_addr_space_init (void)
+   local_addr_space.acc.access_fpreg = access_fpreg;
+   local_addr_space.acc.resume = x86_64_local_resume;
+   local_addr_space.acc.get_proc_name = get_static_proc_name;
++  local_addr_space.acc.get_image_name = get_static_image_name;
+   unw_flush_cache (&local_addr_space, 0, 0);
+ 
+   memset (last_good_addr, 0, sizeof (unw_word_t) * NLGA);

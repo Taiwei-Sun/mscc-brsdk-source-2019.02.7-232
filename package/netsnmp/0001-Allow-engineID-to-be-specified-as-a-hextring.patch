@@ -1,0 +1,130 @@
+From 77f3fb3f2c586589962b0a8396f2cd56efd9bcae Mon Sep 17 00:00:00 2001
+From: Horatiu Vultur <horatiu.vultur@microchip.com>
+Date: Wed, 20 Feb 2019 14:22:22 +0100
+Subject: [PATCH 1/7] Allow engineID to be specified as a hextring
+
+---
+ snmplib/snmpv3.c | 67 ++++++++++++++++++++++++++++++++++++++++++++------------
+ 1 file changed, 53 insertions(+), 14 deletions(-)
+
+diff --git a/snmplib/snmpv3.c b/snmplib/snmpv3.c
+index 771ba3b..dadcc41 100644
+--- a/snmplib/snmpv3.c
++++ b/snmplib/snmpv3.c
+@@ -463,6 +463,7 @@ setup_engineID(u_char ** eidp, const char *text)
+     int             localEngineIDType = engineIDType;
+     int             tmpint;
+     time_t          tmptime;
++    int             rawFormat = 0;
+ 
+     engineIDIsSet = 1;
+ 
+@@ -507,13 +508,16 @@ setup_engineID(u_char ** eidp, const char *text)
+ 
+     /*
+      * Determine if we have text and if so setup our localEngineIDType
+-     * * appropriately.  
++     * * appropriately.
+      */
+     if (NULL != text) {
+         engineIDType = localEngineIDType = ENGINEID_TYPE_TEXT;
++        if (strlen(text) >1 && text[0] == '0' && ( text[1] == 'x' || text[1] == 'X')) {
++            rawFormat = 1;
++        }
+     }
+     /*
+-     * Determine length of the engineID string. 
++     * Determine length of the engineID string.
+      */
+     len = 5;                    /* always have 5 leading bytes */
+     switch (localEngineIDType) {
+@@ -523,7 +527,25 @@ setup_engineID(u_char ** eidp, const char *text)
+                      "Can't set up engineID of type text from an empty string.\n");
+             return -1;
+         }
+-        len += strlen(text);    /* 5 leading bytes+text. No NULL char */
++        if (rawFormat) {
++            int i;
++            int hexlen = strlen(text);
++            if (hexlen < 10) {
++                snmp_log(LOG_ERR,
++                         "Can't set up engineID from too short hexstring.\n");
++                return -1;
++            }
++            for (i = 2; i<hexlen; ++i) { /* Skip initial '0x' */
++                if (!isxdigit(text[i])) {
++                    snmp_log(LOG_ERR,
++                             "Can't set up engineID from invalid hexstring.\n");
++                    return -1;
++                }
++            }
++            len = ((hexlen-2)+1)/2; /* Skip initial '0x' */
++        } else {
++            len += strlen(text);    /* 5 leading bytes+text. No NULL char */
++        }
+         break;
+ #if defined(IFHWADDRLEN) && defined(SIOCGIFHWADDR)
+     case ENGINEID_TYPE_MACADDR:        /* MAC address */
+@@ -562,14 +584,15 @@ setup_engineID(u_char ** eidp, const char *text)
+         snmp_log_perror("setup_engineID malloc");
+         return -1;
+     }
+-    if (localEngineIDType == ENGINEID_TYPE_NETSNMP_RND)
+-        /*
+-         * we must use the net-snmp enterprise id here, regardless 
+-         */
+-        memcpy(bufp, &netsnmpoid, sizeof(netsnmpoid));    /* XXX Must be 4 bytes! */
+-    else
+-        memcpy(bufp, &enterpriseid, sizeof(enterpriseid));      /* XXX Must be 4 bytes! */
+-
++    if (!rawFormat) {
++        if (localEngineIDType == ENGINEID_TYPE_NETSNMP_RND)
++            /*
++             * we must use the net-snmp enterprise id here, regardless
++             */
++            memcpy(bufp, &netsnmpoid, sizeof(netsnmpoid));    /* XXX Must be 4 bytes! */
++        else
++            memcpy(bufp, &enterpriseid, sizeof(enterpriseid));      /* XXX Must be 4 bytes! */
++    }
+     bufp[0] |= 0x80;
+ 
+ 
+@@ -605,8 +628,25 @@ setup_engineID(u_char ** eidp, const char *text)
+         }
+         break;
+     case ENGINEID_TYPE_TEXT:
+-        bufp[4] = ENGINEID_TYPE_TEXT;
+-        memcpy((char *) bufp + 5, (text), strlen(text));
++        if (rawFormat) {
++            /* Interpretation of odd number of digits: 0x123456789 -> 0x1234567809 */
++            int i, j;
++            unsigned int v = 0;
++            int hexlen = strlen(text);
++            for (i = 2, j=0; i < hexlen; ++i) { /* Skip initial '0x' */
++                sscanf(text+i,"%1x",&v);
++                if ( (i&1) == 0 ) {
++                    bufp[j] = v;
++                } else {
++                    bufp[j] = (bufp[j]<<4) + v;
++                    ++j;
++                }
++            }
++            engineIDType = localEngineIDType = bufp[4];
++        } else {
++            bufp[4] = ENGINEID_TYPE_TEXT;
++            memcpy((char *) bufp + 5, (text), strlen(text));
++        }
+         break;
+ #ifdef HAVE_GETHOSTNAME
+ #ifdef AF_INET6
+@@ -1157,7 +1197,6 @@ snmpv3_get_engineID(u_char * buf, size_t buflen)
+     if (!engineID) {
+         return 0;
+     }
+-
+     memcpy(buf, engineID, engineIDLength);
+     return engineIDLength;
+ 
+-- 
+2.7.4
+

@@ -1,0 +1,24 @@
+---
+defconfig_name: "mscc_stage1_jaguar2c_defconfig"
+append_files:
+    - config_file: "configs/mscc_stage1_jaguar2c_defconfig"
+      files:
+        - br_target_mips.config
+        - br_target_stage1.config
+        - br_toolchain_mips_uclib.config
+        - br_uboot.config
+        - br_board_jaguar2c.config
+        - br_linux.config
+        - br_tuning.config
+    - config_file: "board/jaguar2c/jaguar2c_kernel.config"
+      files:
+        - linux.config
+        - linux_iptables.config
+        - linux_jaguar2c.config
+    - config_file: "board/jaguar2c/jaguar2c_uboot.config"
+      files:
+        - uboot_jaguar2c.config
+output_packet: "mscc-brsdk-mipsel"
+output_path: "mipsel-mips32r2-linux-uclibc/jaguar2c"
+uboot_name: "uboot_jaguar2c.bin"
+arch: "mips"

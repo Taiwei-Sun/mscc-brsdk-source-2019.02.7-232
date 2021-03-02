@@ -1,0 +1,64 @@
+1575896311.571469916:start:download            : toolchain-external
+1575896311.577010786:end  :download            : toolchain-external
+1575896311.616180830:start:download            : host-skeleton
+1575896311.628657578:end  :download            : host-skeleton
+1575896311.650393913:start:download            : skeleton
+1575896311.664587068:end  :download            : skeleton
+1575896312.494387132:start:download            : skeleton-init-none
+1575896312.506159391:end  :download            : skeleton-init-none
+1575896312.565723701:start:download            : skeleton-init-common
+1575896312.570740806:end  :download            : skeleton-init-common
+1575896312.626206481:start:download            : toolchain-external-custom
+1575896312.651229394:end  :download            : toolchain-external-custom
+1575896312.682764624:start:download            : toolchain
+1575896312.714574235:end  :download            : toolchain
+1575896312.734697571:start:download            : ifupdown-scripts
+1575896312.764792598:end  :download            : ifupdown-scripts
+1575896312.786673927:start:download            : libzlib
+1575896312.862004186:end  :download            : libzlib
+1575896312.891833122:start:download            : mbedtls
+1575896313.067622369:end  :download            : mbedtls
+1575896313.105203586:start:download            : host-pkgconf
+1575896313.137324392:end  :download            : host-pkgconf
+1575896313.162260942:start:download            : mscc-modular-firmware
+1575896313.205804165:end  :download            : mscc-modular-firmware
+1575896313.230812423:start:download            : zlib
+1575896313.247445738:end  :download            : zlib
+1575896313.276793867:start:download            : host-patchelf
+1575896313.336253826:end  :download            : host-patchelf
+1575896313.361887682:start:download            : uboot
+1575896313.470956523:end  :download            : uboot
+1575896313.502619356:start:download            : linux
+1575896360.432375463:end  :download            : linux
+1575896360.448385767:start:download            : host-kmod
+1575896361.056619309:end  :download            : host-kmod
+1575896361.075443487:start:download            : host-xz
+1575896361.108423491:end  :download            : host-xz
+1575896361.144057915:start:download            : host-squashfs
+1575896361.179748485:end  :download            : host-squashfs
+1575896361.204002558:start:download            : host-lz4
+1575896361.225313495:end  :download            : host-lz4
+1575896361.251383042:start:download            : host-lzo
+1575896361.275557056:end  :download            : host-lzo
+1575896361.304250441:start:download            : host-zlib
+1575896361.317229182:end  :download            : host-zlib
+1575896361.335762946:start:download            : host-libzlib
+1575896361.356865796:end  :download            : host-libzlib
+1575896361.371710062:start:download            : host-zstd
+1575896361.393397709:end  :download            : host-zstd
+1575896361.413961150:start:download            : host-fakeroot
+1575896361.438118443:end  :download            : host-fakeroot
+1575896361.458694861:start:download            : host-acl
+1575896361.485175875:end  :download            : host-acl
+1575896361.498228989:start:download            : host-attr
+1575896361.517332675:end  :download            : host-attr
+1575896361.534598921:start:download            : host-autoconf
+1575896361.554351756:end  :download            : host-autoconf
+1575896361.572492646:start:download            : host-libtool
+1575896361.590137321:end  :download            : host-libtool
+1575896361.609363158:start:download            : host-m4
+1575896361.636086708:end  :download            : host-m4
+1575896361.654605100:start:download            : host-automake
+1575896361.674636472:end  :download            : host-automake
+1575896361.692322734:start:download            : host-makedevs
+1575896361.696297648:end  :download            : host-makedevs

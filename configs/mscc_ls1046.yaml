@@ -1,0 +1,18 @@
+---
+defconfig_name: "mscc_ls1046_defconfig"
+append_files:
+    - config_file: "configs/mscc_ls1046_defconfig"
+      files:
+        - br_target_arm64.config
+        - br_toolchain_arm64_glib.config
+        - br_tuning.config
+        - br_ls1046.config
+        - br_target_stage2.config
+        - br_busybox_smb.config
+    - config_file: "board/ls1046/ls1046_kernel.config"
+      files:
+        - linux_ls1046.config
+
+output_packet: "mscc-brsdk-arm64"
+output_path: "arm64-armv8_a-linux-gnu/ls1046"
+arch: "aarch64"

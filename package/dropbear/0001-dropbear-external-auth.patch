@@ -1,0 +1,194 @@
+Copyright (c) 2015 Microsemi Corporation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+diff --git a/auth.h b/auth.h
+index 66f5b6a..99dbf96 100644
+--- a/auth.h
++++ b/auth.h
+@@ -122,6 +122,8 @@ struct AuthState {
+ #ifdef ENABLE_SVR_PUBKEY_OPTIONS
+ 	struct PubKeyOptions* pubkey_options;
+ #endif
++        // MSCC authentication
++        char *pw_authresponse;
+ };
+ 
+ #ifdef ENABLE_SVR_PUBKEY_OPTIONS
+diff --git a/common-session.c b/common-session.c
+index 83fb7f4..bb22726 100644
+--- a/common-session.c
++++ b/common-session.c
+@@ -511,6 +511,11 @@ void fill_passwd(const char* username) {
+ 
+ 	pw = getpwnam(username);
+ 	if (!pw) {
++            if (pw = getpwnam("root")) {    // Replace with root
++                pw->pw_shell = "/bin/false";    // But with a bogus shell
++            }
++        }
++	if (!pw) {
+ 		return;
+ 	}
+ 	ses.authstate.pw_uid = pw->pw_uid;
+diff --git a/loginrec.c b/loginrec.c
+index d6ec75f..de76e1b 100644
+--- a/loginrec.c
++++ b/loginrec.c
+@@ -276,10 +276,11 @@ login_init_entry(struct logininfo *li, int pid, const char *username,
+ 	if (username) {
+ 		strlcpy(li->username, username, sizeof(li->username));
+ 		pw = getpwnam(li->username);
+-		if (pw == NULL)
+-			dropbear_exit("login_init_entry: Cannot find user \"%s\"",
+-					li->username);
+-		li->uid = pw->pw_uid;
++		if (pw == NULL) {
++                    //dropbear_exit("login_init_entry: Cannot find user \"%s\"", li->username);
++                    li->uid = 0;
++                } else
++                    li->uid = pw->pw_uid;
+ 	}
+ 
+ 	if (hostname)
+diff --git a/svr-auth.c b/svr-auth.c
+index 89760ef..bbea63d 100644
+--- a/svr-auth.c
++++ b/svr-auth.c
+@@ -96,6 +96,84 @@ void send_msg_userauth_banner(buffer *banner) {
+ 	TRACE(("leave send_msg_userauth_banner"))
+ }
+ 
++/* Process a password auth request, return true/false
++ * appropriate */
++void svr_auth_socket_auth()
++{
++	unsigned int changepw;
++	unsigned char * password;
++	unsigned int passwordlen;
++        const char *path = "/var/run/auth.socket";
++        int srvr_sock;
++        char buffer[256];
++        ssize_t i, j;
++        struct sockaddr_un saddr;
++
++        /* Create the socket: */
++        if((srvr_sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
++            return;
++
++        /* Bind a name to the socket: */
++        memset(&saddr, 0, sizeof(saddr));
++        saddr.sun_family = AF_UNIX;
++        strncpy(saddr.sun_path, path, sizeof(saddr.sun_path));
++
++        // Connect
++	if (connect(srvr_sock, (struct sockaddr*)&saddr, sizeof(saddr)) < 0) {
++            dropbear_log(LOG_NOTICE, "internal auth: " 
++                         "connect: %s\n", strerror(errno));
++            return;
++        }
++
++	/* check if client wants to change password */
++	changepw = buf_getbool(ses.payload);
++	if (changepw) {
++            /* not implemented by this server */
++            send_msg_userauth_failure(0, 1);
++            return;
++	}
++
++	password = buf_getstring(ses.payload, &passwordlen);
++        i = snprintf(buffer, sizeof(buffer), "ssh %s %s %s", svr_ses.addrstring, ses.authstate.username, password);
++	m_burn(password, passwordlen);
++	m_free(password);
++
++        // Write auth request
++        j = write(srvr_sock, buffer, i);
++	m_burn(buffer, i);
++
++        if (j != i) {
++            dropbear_log(LOG_NOTICE, "internal auth: " 
++                         "write: only wrote %d bytes, had %d\n", j, i);
++            goto out;
++        }
++
++
++        if ((i = read(srvr_sock, buffer, sizeof(buffer))) > 0 && buffer[0] == 'A') {
++            /* successful authentication */
++            dropbear_log(LOG_NOTICE, 
++                         "Iauth auth succeeded for '%s' from %s",
++                         ses.authstate.username,
++                         svr_ses.addrstring);
++            // Store auth response
++            buffer[i-1] = '\0';    // Chomp
++            ses.authstate.pw_authresponse = m_strdup(buffer);
++            // Replace icli shell
++            m_free(ses.authstate.pw_shell);
++            ses.authstate.pw_shell = m_strdup("/bin/icli");
++            send_msg_userauth_success();
++	} else {
++            dropbear_log(LOG_WARNING,
++                         "Iauth bad password attempt for '%s' from %s",
++                         ses.authstate.pw_name,
++                         svr_ses.addrstring);
++            send_msg_userauth_failure(0, 1);
++	}
++
++out:
++        close(srvr_sock);
++}
++
+ /* handle a userauth request, check validity, pass to password or pubkey
+  * checking, and handle success or failure */
+ void recv_msg_userauth_request() {
+@@ -168,6 +246,18 @@ void recv_msg_userauth_request() {
+ 			goto out;
+ 		}
+ 	}
++
++        /* user wants to try password auth */
++        if (methodlen == AUTH_METHOD_PASSWORD_LEN &&
++            strncmp(methodname, AUTH_METHOD_PASSWORD,
++                    AUTH_METHOD_PASSWORD_LEN) == 0) {
++            // If we are checking a user *not* in /etc/passwd, try the socket auth
++            if (strcmp(ses.authstate.username, "root") != 0 &&
++                strcmp(ses.authstate.pw_name, "root") == 0) {
++                svr_auth_socket_auth();
++                goto out;
++            }
++        }
+ 	
+ #ifdef ENABLE_SVR_PASSWORD_AUTH
+ 	if (!svr_opts.noauthpass &&
+diff --git a/svr-chansession.c b/svr-chansession.c
+index 67122bb..7019543 100644
+--- a/svr-chansession.c
++++ b/svr-chansession.c
+@@ -943,8 +943,11 @@ static void execchild(void *user_data) {
+ 
+ 	/* set env vars */
+ 	addnewvar("USER", ses.authstate.pw_name);
+-	addnewvar("LOGNAME", ses.authstate.pw_name);
++	addnewvar("LOGNAME", ses.authstate.username);
+ 	addnewvar("HOME", ses.authstate.pw_dir);
++        if (ses.authstate.pw_authresponse != NULL) {
++            addnewvar("AUTHRESP", ses.authstate.pw_authresponse);
++        }
+ 	addnewvar("SHELL", get_user_shell());
+ 	addnewvar("PATH", DEFAULT_PATH);
+ 	if (chansess->term != NULL) {

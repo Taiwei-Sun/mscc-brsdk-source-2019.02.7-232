@@ -1,0 +1,28 @@
+From 0507a91cede320043e08411b9563b3bb871d7168 Mon Sep 17 00:00:00 2001
+From: Horatiu Vultur <horatiu.vultur@microchip.com>
+Date: Wed, 20 Feb 2019 14:33:17 +0100
+Subject: [PATCH 4/7] Fix status
+
+---
+ agent/helpers/old_api.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/agent/helpers/old_api.c b/agent/helpers/old_api.c
+index 007f2bc..2c8454b 100644
+--- a/agent/helpers/old_api.c
++++ b/agent/helpers/old_api.c
+@@ -421,7 +421,10 @@ netsnmp_old_api_helper(netsnmp_mib_handler *handler,
+ 
+             oldasp = netsnmp_get_current_agent_session();
+             set_current_agent_session(reqinfo->asp);
+-            status =
++            if (requests->requestvb->type == ASN_NULL)
++              status = SNMP_ERR_WRONGTYPE;
++            else
++              status =
+                 (*(cacheptr->write_method)) (reqinfo->mode,
+                                              requests->requestvb->val.
+                                              string,
+-- 
+2.7.4
+
