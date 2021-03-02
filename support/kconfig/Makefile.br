@@ -6,6 +6,7 @@ obj ?= .
 
 include Makefile
 #HOSTCFLAGS+=-Dinline="" -include foo.h
+HOSTCFLAGS += -no-pie
 -include $(obj)/.depend
 $(obj)/.depend: $(wildcard *.h *.c)
 	$(HOSTCC) $(HOST_EXTRACFLAGS) $(HOSTCFLAGS) -MM *.c > $@ 2>/dev/null || :
