@@ -1,0 +1,54 @@
+Fixes:
+Bugzilla#22586. Avoid abort on mutex deadlock detection, but let critd catch it.
+
+--- a/nptl/pthread_mutex_lock.c
++++ b/nptl/pthread_mutex_lock.c
+@@ -19,6 +19,7 @@
+ #include <assert.h>
+ #include <errno.h>
+ #include <stdlib.h>
++#include <stdio.h>
+ #include <unistd.h>
+ #include <sys/param.h>
+ #include <not-cancel.h>
+@@ -27,6 +28,25 @@
+ #include <lowlevellock.h>
+ #include <stap-probe.h>
+ 
++extern const char *__progname;
++static void
++__my_assert_fail(const char *assertion, const char *file,
++		 unsigned int line, const char *function)
++{
++  fprintf(stderr, "%s%s%d/%s:%u: %s%sAssertion `%s' failed.\n",
++	  __progname, __progname[0] ? ": " : "",
++	  (int)syscall(__NR_gettid), file, line,
++	  function ? function : "", function ? ": " : "",
++	  assertion);
++}
++
++/* Like assert(), but only prints a string and doesn't abort() */
++# define my_assert(expr)						\
++  ((expr)								\
++   ? __ASSERT_VOID_CAST (0)						\
++   : __my_assert_fail (#expr, __FILE__, __LINE__, __FUNCTION__))
++
++
+ #ifndef lll_lock_elision
+ #define lll_lock_elision(lock, try_lock, private)	({ \
+       lll_lock (lock, private); 0; })
+@@ -344,12 +364,12 @@
+ 		&& (INTERNAL_SYSCALL_ERRNO (e, __err) == ESRCH
+ 		    || INTERNAL_SYSCALL_ERRNO (e, __err) == EDEADLK))
+ 	      {
+-		assert (INTERNAL_SYSCALL_ERRNO (e, __err) != EDEADLK
++		my_assert (INTERNAL_SYSCALL_ERRNO (e, __err) != EDEADLK
+ 			|| (kind != PTHREAD_MUTEX_ERRORCHECK_NP
+ 			    && kind != PTHREAD_MUTEX_RECURSIVE_NP));
+ 		/* ESRCH can happen only for non-robust PI mutexes where
+ 		   the owner of the lock died.  */
+-		assert (INTERNAL_SYSCALL_ERRNO (e, __err) != ESRCH || !robust);
++		my_assert (INTERNAL_SYSCALL_ERRNO (e, __err) != ESRCH || !robust);
+ 
+ 		/* Delay the thread indefinitely.  */
+ 		while (1)

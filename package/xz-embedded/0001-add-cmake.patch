@@ -1,0 +1,29 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+new file mode 100644
+index 0000000..929516e
+--- /dev/null
++++ b/CMakeLists.txt
+@@ -0,0 +1,23 @@
++project(xz-embedded)
++
++cmake_minimum_required(VERSION 2.8.12)
++
++set(API_SRC
++linux/lib/xz/xz_dec_stream.c
++linux/lib/xz/xz_dec_lzma2.c
++linux/lib/xz/xz_crc32.c
++linux/lib/xz/xz_dec_bcj.c)
++
++include_directories(userspace)
++include_directories(linux/include/linux)
++
++set(CMAKE_BUILD_TYPE Release)
++
++add_library(xz-embedded SHARED ${API_SRC})
++
++target_compile_options(xz-embedded PUBLIC -O2 -pedantic -Wall -Wextra -std=gnu89)
++
++install( FILES linux/include/linux/xz.h DESTINATION include )
++
++install( TARGETS xz-embedded DESTINATION lib )
++

@@ -1,0 +1,73 @@
+From b0b12984e2d9b9d60bf0544c417c15eaa20304c1 Mon Sep 17 00:00:00 2001
+From: Horatiu Vultur <horatiu.vultur@microchip.com>
+Date: Wed, 20 Feb 2019 14:41:03 +0100
+Subject: [PATCH 5/7] Agent trap private enterprise
+
+---
+ agent/agent_trap.c                  | 16 ++++++++++++++++
+ include/net-snmp/agent/agent_trap.h |  1 +
+ 2 files changed, 17 insertions(+)
+
+diff --git a/agent/agent_trap.c b/agent/agent_trap.c
+index d49c2dc..579dfcc 100644
+--- a/agent/agent_trap.c
++++ b/agent/agent_trap.c
+@@ -101,6 +101,8 @@ const oid       objid_enterprisetrap[] = { NETSNMP_NOTIFICATION_MIB };
+ const oid       trap_version_id[] = { NETSNMP_SYSTEM_MIB };
+ const int       enterprisetrap_len = OID_LENGTH(objid_enterprisetrap);
+ const int       trap_version_id_len = OID_LENGTH(trap_version_id);
++oid             * private_enterprise = NULL;
++int             private_enterprise_len = 0;
+ 
+ #define SNMPV2_TRAPS_PREFIX	SNMP_OID_SNMPMODULES,1,1,5
+ const oid       trap_prefix[]    = { SNMPV2_TRAPS_PREFIX };
+@@ -1307,6 +1309,9 @@ send_trap_vars(int trap, int specific, netsnmp_variable_list * vars)
+     if (trap == SNMP_TRAP_ENTERPRISESPECIFIC)
+         send_enterprise_trap_vars(trap, specific, objid_enterprisetrap,
+                                   OID_LENGTH(objid_enterprisetrap), vars);
++    else if (private_enterprise)
++        send_enterprise_trap_vars(trap, specific, private_enterprise,
++                                  private_enterprise_len, vars);
+     else
+         send_enterprise_trap_vars(trap, specific, trap_version_id,
+                                   OID_LENGTH(trap_version_id), vars);
+@@ -1321,6 +1326,10 @@ void send_trap_vars_with_context(int trap, int specific,
+         netsnmp_send_traps(trap, specific, objid_enterprisetrap,
+                                   OID_LENGTH(objid_enterprisetrap), vars,
+ 								  context, 0);
++    else if (private_enterprise)
++        netsnmp_send_traps(trap, specific, private_enterprise,
++                                  private_enterprise_len, vars,
++                                                                  context, 0);
+     else
+         netsnmp_send_traps(trap, specific, trap_version_id,
+                                   OID_LENGTH(trap_version_id), vars, 
+@@ -1416,6 +1425,13 @@ send_trap_pdu(netsnmp_pdu *pdu)
+ }
+ #endif /* NETSNMP_FEATURE_REMOVE_SEND_TRAP_PDU */
+ 
++void
++update_private_enterprise_trap(oid * enterprise, int enterprise_length)
++{
++    private_enterprise = enterprise;
++    private_enterprise_len = enterprise_length;
++    return;
++}
+ 
+ 
+         /*******************
+diff --git a/include/net-snmp/agent/agent_trap.h b/include/net-snmp/agent/agent_trap.h
+index c74fd9c..1f3bc67 100644
+--- a/include/net-snmp/agent/agent_trap.h
++++ b/include/net-snmp/agent/agent_trap.h
+@@ -41,6 +41,7 @@ int             netsnmp_send_traps(int trap, int specific,
+                           netsnmp_variable_list * vars,
+                           /* flags are currently unused */
+                           const char * context, int flags);
++void            update_private_enterprise_trap(oid * enterprise, int enterprise_length);
+ void            snmpd_parse_config_authtrap(const char *, char *);
+ void            snmpd_parse_config_trapsink(const char *, char *);
+ void            snmpd_parse_config_trap2sink(const char *, char *);
+-- 
+2.7.4
+

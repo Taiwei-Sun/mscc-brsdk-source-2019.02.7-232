@@ -1,0 +1,9 @@
+---
+buildroot: 2019.02.7
+branch: master
+tool_ver: 2019.02.7-082
+tool_br: toolchain
+vars:
+    MSCC_TOOLCHAIN: 2019.02.7-082
+    MSCC_LINUX_KERNEL_SHA: 6f193c03ead8b052dee09edbdb6ccae9a1f136ca
+    MSCC_UBOOT_SHA: d7973cd01b22e15be6e4a912fe445ab19d09d335

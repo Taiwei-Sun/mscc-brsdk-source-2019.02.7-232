@@ -1,0 +1,120 @@
+diff --git a/include/dwarf_i.h b/include/dwarf_i.h
+index 4a02a7d..983b9f5 100644
+--- a/include/dwarf_i.h
++++ b/include/dwarf_i.h
+@@ -352,9 +352,9 @@ dwarf_read_encoded_pointer_inlined (unw_addr_space_t as, unw_accessors_t *a,
+   uint16_t uval16;
+   uint32_t uval32;
+   uint64_t uval64;
+-  int16_t sval16;
+-  int32_t sval32;
+-  int64_t sval64;
++  int16_t sval16 = 0;
++  int32_t sval32 = 0;
++  int64_t sval64 = 0;
+   int ret;
+ 
+   /* DW_EH_PE_omit and DW_EH_PE_aligned don't follow the normal
+diff --git a/src/dwarf/Gexpr.c b/src/dwarf/Gexpr.c
+index b56bb31..c9a1904 100644
+--- a/src/dwarf/Gexpr.c
++++ b/src/dwarf/Gexpr.c
+@@ -190,7 +190,7 @@ HIDDEN int
+ dwarf_eval_expr (struct dwarf_cursor *c, unw_word_t *addr, unw_word_t len,
+                  unw_word_t *valp, int *is_register)
+ {
+-  unw_word_t operand1 = 0, operand2 = 0, tmp1, tmp2, tmp3, end_addr;
++  unw_word_t operand1 = 0, operand2 = 0, tmp1, tmp2 = 0, tmp3, end_addr;
+   uint8_t opcode, operands_signature, u8;
+   unw_addr_space_t as;
+   unw_accessors_t *a;
+diff --git a/src/dwarf/Gfde.c b/src/dwarf/Gfde.c
+index dc973fe..55d8da8 100644
+--- a/src/dwarf/Gfde.c
++++ b/src/dwarf/Gfde.c
+@@ -240,7 +240,7 @@ dwarf_extract_proc_info_from_fde (unw_addr_space_t as, unw_accessors_t *a,
+ 
+   if (u32val != 0xffffffff)
+     {
+-      int32_t cie_offset;
++      int32_t cie_offset = 0;
+ 
+       /* In some configurations, an FDE with a 0 length indicates the
+          end of the FDE-table.  */
+@@ -270,7 +270,7 @@ dwarf_extract_proc_info_from_fde (unw_addr_space_t as, unw_accessors_t *a,
+     }
+   else
+     {
+-      int64_t cie_offset;
++      int64_t cie_offset = 0;
+ 
+       /* the FDE is in the 64-bit DWARF format */
+ 
+diff --git a/src/dwarf/Gfind_proc_info-lsb.c b/src/dwarf/Gfind_proc_info-lsb.c
+index 6e1f4c3..f86f8c9 100644
+--- a/src/dwarf/Gfind_proc_info-lsb.c
++++ b/src/dwarf/Gfind_proc_info-lsb.c
+@@ -792,7 +792,7 @@ remote_lookup (unw_addr_space_t as,
+   unw_accessors_t *a = unw_get_accessors (as);
+   unsigned long lo, hi, mid;
+   unw_word_t e_addr = 0;
+-  int32_t start;
++  int32_t start = 0;
+   int ret;
+ 
+   /* do a binary search for right entry: */
+diff --git a/src/dwarf/Gfind_unwind_table.c b/src/dwarf/Gfind_unwind_table.c
+index a51c611..2af50b7 100644
+--- a/src/dwarf/Gfind_unwind_table.c
++++ b/src/dwarf/Gfind_unwind_table.c
+@@ -137,7 +137,7 @@ dwarf_find_unwind_table (struct elf_dyn_info *edi, unw_addr_space_t as,
+         }
+ 
+       a = unw_get_accessors (unw_local_addr_space);
+-      addr = (unw_word_t) (hdr + 1);
++      addr = (intptr_t) (hdr + 1);
+ 
+       /* Fill in a dummy proc_info structure.  We just need to fill in
+          enough to ensure that dwarf_read_encoded_pointer() can do it's
+@@ -193,13 +193,13 @@ dwarf_find_unwind_table (struct elf_dyn_info *edi, unw_addr_space_t as,
+       /* two 32-bit values (ip_offset/fde_offset) per table-entry: */
+       edi->di_cache.u.rti.table_len = (fde_count * 8) / sizeof (unw_word_t);
+       edi->di_cache.u.rti.table_data = ((load_base + peh_hdr->p_vaddr)
+-                                       + (addr - (unw_word_t) edi->ei.image
++                                       + (addr - (intptr_t) edi->ei.image
+                                           - peh_hdr->p_offset));
+ 
+       /* For the binary-search table in the eh_frame_hdr, data-relative
+          means relative to the start of that section... */
+       edi->di_cache.u.rti.segbase = ((load_base + peh_hdr->p_vaddr)
+-                                    + ((unw_word_t) hdr - (unw_word_t) edi->ei.image
++                                    + ((intptr_t) hdr - (intptr_t) edi->ei.image
+                                        - peh_hdr->p_offset));
+       found = 1;
+     }
+diff --git a/src/dwarf/Gparser.c b/src/dwarf/Gparser.c
+index 3a47255..3f926b1 100644
+--- a/src/dwarf/Gparser.c
++++ b/src/dwarf/Gparser.c
+@@ -126,7 +126,7 @@ run_cfi_program (struct dwarf_cursor *c, dwarf_state_record_t *sr,
+         case DW_CFA_MIPS_advance_loc8:
+ #ifdef UNW_TARGET_MIPS
+           {
+-            uint64_t u64;
++            uint64_t u64 = 0;
+ 
+             if ((ret = dwarf_readu64 (as, a, addr, &u64, arg)) < 0)
+               goto fail;
+diff --git a/src/mips/Gstep.c b/src/mips/Gstep.c
+index 0a0b9c2..0a67492 100644
+--- a/src/mips/Gstep.c
++++ b/src/mips/Gstep.c
+@@ -30,7 +30,7 @@ PROTECTED int
+ unw_handle_signal_frame (unw_cursor_t *cursor)
+ {
+   struct cursor *c = (struct cursor *) cursor;
+-  unw_word_t sc_addr, sp, sp_addr = c->dwarf.cfa;
++  unw_word_t sc_addr, sp_addr = c->dwarf.cfa;
+   unw_word_t ra, fp;
+   int ret;
+ 

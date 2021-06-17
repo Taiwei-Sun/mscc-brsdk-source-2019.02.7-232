@@ -1,0 +1,119 @@
+From 0c0c0bca674e30aa8bc84ae1b8160f2f3682e3ec Mon Sep 17 00:00:00 2001
+From: Lars Povlsen <lars.povlsen@microsemi.com>
+Date: Thu, 2 Aug 2018 14:58:11 +0200
+Subject: [PATCH] MSCC: Enable SPI1 on BBB
+
+---
+ arch/arm/boot/dts/am335x-boneblack-mscc.dts  | 15 +++++++
+ arch/arm/boot/dts/am335x-boneblack-mscc.dtsi | 66 ++++++++++++++++++++++++++++
+ drivers/spi/spidev.c                         |  1 +
+ 3 files changed, 82 insertions(+)
+ create mode 100644 arch/arm/boot/dts/am335x-boneblack-mscc.dts
+ create mode 100644 arch/arm/boot/dts/am335x-boneblack-mscc.dtsi
+
+diff --git a/arch/arm/boot/dts/am335x-boneblack-mscc.dts b/arch/arm/boot/dts/am335x-boneblack-mscc.dts
+new file mode 100644
+index 0000000..febc59b
+--- /dev/null
++++ b/arch/arm/boot/dts/am335x-boneblack-mscc.dts
+@@ -0,0 +1,15 @@
++/*
++ * Copyright (C) 2018 Microsemi Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include "am335x-bonegreen.dts"
++#include "am335x-boneblack-mscc.dtsi"
++
++/ {
++	model = "TI AM335x BeagleBone Black for MSCC SPI demo";
++	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
++};
+diff --git a/arch/arm/boot/dts/am335x-boneblack-mscc.dtsi b/arch/arm/boot/dts/am335x-boneblack-mscc.dtsi
+new file mode 100644
+index 0000000..29df9e7
+--- /dev/null
++++ b/arch/arm/boot/dts/am335x-boneblack-mscc.dtsi
+@@ -0,0 +1,66 @@
++/*
++ * Copyright (C) 2018 Microsemi Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++&am33xx_pinmux {
++	bb_spi1_pins: pinmux_bb_spi1_pins {
++		pinctrl-single,pins = <
++                0x190 0x33      /* mcasp0_aclkx.spi1_sclk, INPUT_PULLUP | MODE3 */
++                0x194 0x33      /* mcasp0_fsx.spi1_d0, INPUT_PULLUP | MODE3 */
++                0x198 0x13      /* mcasp0_axr0.spi1_d1, OUTPUT_PULLUP | MODE3 */
++                0x19c 0x13      /* mcasp0_ahclkr.spi1_cs0, OUTPUT_PULLUP | MODE3 */
++                /* AM33XX_IOPAD(0x844, PIN_OUTPUT_PULLUP | MUX_MODE7) /* gpmc_a1.gpio1_17 */
++                /* AM33XX_IOPAD(0x9ac, PIN_OUTPUT_PULLUP | MUX_MODE7) /* mcasp0_ahclkx.gpio3_21 */
++                /* AM33XX_IOPAD(0x9a4, PIN_OUTPUT_PULLUP | MUX_MODE7) /* mcasp0_fsr.gpio3_19 */
++		>;
++	};
++};
++
++&spi1 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	status = "okay";
++	pinctrl-names = "default";
++	pinctrl-0 = <&bb_spi1_pins>;
++
++        /* cs-gpios = <&gpio1 17 0>, <&gpio3 21 0>, <&gpio3 19 0>; */
++
++	channel@0 {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		compatible = "spidev";
++
++		reg = <0>;
++		spi-max-frequency = <16000000>;
++		spi-cpha;
++	};
++
++	channel@1 {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		compatible = "spidev";
++
++		reg = <1>;
++		spi-max-frequency = <16000000>;
++		spi-cpha;
++	};
++
++	channel@2 {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		compatible = "spidev";
++
++		reg = <2>;
++		spi-max-frequency = <16000000>;
++		spi-cpha;
++	};
++
++};
+diff --git a/drivers/spi/spidev.c b/drivers/spi/spidev.c
+index 2e05046..d780491 100644
+--- a/drivers/spi/spidev.c
++++ b/drivers/spi/spidev.c
+@@ -669,6 +669,7 @@
+ 	{ .compatible = "lineartechnology,ltc2488" },
+ 	{ .compatible = "ge,achc" },
+ 	{ .compatible = "semtech,sx1301" },
++	{ .compatible = "spidev" },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, spidev_dt_ids);
+

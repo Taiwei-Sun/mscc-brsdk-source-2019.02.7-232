@@ -1,0 +1,25 @@
+From 8f4884e4070e7e0b955871f87d10c83e50db4ce6 Mon Sep 17 00:00:00 2001
+From: Horatiu Vultur <horatiu.vultur@microchip.com>
+Date: Wed, 20 Feb 2019 14:44:05 +0100
+Subject: [PATCH 6/7] update usmUser.c
+
+---
+ agent/mibgroup/snmpv3/usmUser.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/agent/mibgroup/snmpv3/usmUser.c b/agent/mibgroup/snmpv3/usmUser.c
+index 39ec61d..7f865f0 100644
+--- a/agent/mibgroup/snmpv3/usmUser.c
++++ b/agent/mibgroup/snmpv3/usmUser.c
+@@ -346,7 +346,7 @@ var_usmUser(struct variable * vp,
+             return NULL;
+         }
+         memset(newname, 0, sizeof(newname));
+-        if (((int) *length) <= (int) vp->namelen || rtest == -1) {
++        if (rtest == -1) {
+             /*
+              * oid is not within our range yet 
+              */
+-- 
+2.7.4
+

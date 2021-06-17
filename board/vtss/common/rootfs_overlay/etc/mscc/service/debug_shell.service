@@ -1,0 +1,6 @@
+# START OF CONFIG FILE
+name = debug_shell
+type = service
+cmd = /sbin/getty -L console 0 vt100
+serviced_profile = debug
+# END OF CONFIG FILE

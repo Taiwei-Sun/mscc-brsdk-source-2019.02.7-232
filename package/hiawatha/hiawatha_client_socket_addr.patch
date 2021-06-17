@@ -1,0 +1,89 @@
+diff --git a/src/cgi.c b/src/cgi.c
+index b121060..b45ccc7 100644
+--- a/src/cgi.c
++++ b/src/cgi.c
+@@ -302,6 +302,39 @@ t_fcgi_server *find_fcgi_server(t_fcgi_server *fcgi_server, char *fcgi_id) {
+ 	return NULL;
+ }
+ 
++static void update_client_socket_addr(t_session *session) {
++    /* Save IP of client socket so it can be exposed by the
++     * CGI environment. */
++
++    struct sockaddr_storage addr;
++    socklen_t               len;
++
++#ifdef ENABLE_IPV6
++    len = sizeof(struct sockaddr_in6);
++#else
++    len = sizeof(struct sockaddr_in);
++#endif
++
++
++    if (getsockname(session->client_socket, (struct sockaddr *) &addr, &len) == 0) {
++        if (addr.ss_family == AF_INET) {
++            memcpy(session->client_socket_ip.value, &((struct sockaddr_in *) &addr)->sin_addr.s_addr, IPv4_LEN);
++            session->client_socket_ip.family = AF_INET;
++            session->client_socket_ip.size   = IPv4_LEN;
++#ifdef ENABLE_IPV6
++        } else if (addr.ss_family == AF_INET6) {
++            memcpy(session->client_socket_ip.value, &((struct sockaddr_in6 *) &addr)->sin6_addr, IPv6_LEN);
++            session->client_socket_ip.family = AF_INET6;
++            session->client_socket_ip.size   = IPv6_LEN;
++#endif
++        } else {
++            default_ipv4(&session->client_socket_ip);
++        }
++    } else {
++        default_ipv4(&session->client_socket_ip);
++    }
++}
++
+ /*
+  * Normal CGI processes
+  * =====================
+@@ -347,6 +380,8 @@ pid_t fork_cgi_process(t_session *session, t_cgi_info *cgi_info) {
+ 			fcntl(STDOUT_FILENO, F_SETFD, 0);
+ 			fcntl(STDERR_FILENO, F_SETFD, 0);
+ 
++                        update_client_socket_addr(session);
++
+ 			/* Close all other open filedescriptors.
+ 			 */
+ 			close_bindings(session->config->binding);
+@@ -585,6 +620,8 @@ int send_fcgi_request(t_session *session, int sock) {
+ 		return -1;
+ 	}
+ 
++        update_client_socket_addr(session);
++
+ 	fcgi_buffer.type = FCGI_PARAMS;
+ 	set_environment(session, &fcgi_buffer);
+ 	if (send_fcgi_buffer(&fcgi_buffer, NULL, 0) == -1) {
+diff --git a/src/envir.c b/src/envir.c
+index 638328e..2decdd2 100644
+--- a/src/envir.c
++++ b/src/envir.c
+@@ -195,6 +195,10 @@ void set_environment(t_session *session, t_fcgi_buffer *fcgi_buffer) {
+ 	if (ip_to_str(&(session->binding->interface), ip, MAX_IP_STR_LEN) != -1) {
+ 		add_to_environment(fcgi_buffer, "SERVER_ADDR", ip);
+ 	}
++	if (ip_to_str(&(session->client_socket_ip), ip, MAX_IP_STR_LEN) != -1) {
++		add_to_environment(fcgi_buffer, "CLIENT_SOCKET_ADDR", ip);
++        }
++
+ 	add_to_environment(fcgi_buffer, "REDIRECT_STATUS", "200");
+ 
+ 	if (session->remote_user != NULL) {
+diff --git a/src/session.h b/src/session.h
+index b343a84..eda0224 100644
+--- a/src/session.h
++++ b/src/session.h
+@@ -46,6 +46,7 @@ typedef struct type_session {
+ 	time_t          time;
+ 	int             client_id;
+ 	int             client_socket;
++        t_ip_addr       client_socket_ip;       /* IP of client socket - only set/used for CGI processing */
+ 	t_binding       *binding;
+ 	bool            socket_open;
+ 	bool            via_trusted_proxy;

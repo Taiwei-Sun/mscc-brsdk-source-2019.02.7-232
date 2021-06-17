@@ -1,0 +1,24 @@
+---
+defconfig_name: "mscc_stage1_luton26_defconfig"
+append_files:
+    - config_file: "configs/mscc_stage1_luton26_defconfig"
+      files:
+        - br_target_mips.config
+        - br_target_stage1.config
+        - br_toolchain_mips_uclib.config
+        - br_uboot.config
+        - br_board_luton26.config
+        - br_linux.config
+        - br_tuning.config
+    - config_file: "board/luton26/luton26_kernel.config"
+      files:
+        - linux.config
+        - linux_iptables.config
+        - linux_luton26.config
+    - config_file: "board/luton26/luton26_uboot.config"
+      files:
+        - uboot_luton26.config
+output_packet: "mscc-brsdk-mipsel"
+output_path: "mipsel-mips32r2-linux-uclibc/luton26"
+uboot_name: "uboot_luton26.bin"
+arch: "mips"

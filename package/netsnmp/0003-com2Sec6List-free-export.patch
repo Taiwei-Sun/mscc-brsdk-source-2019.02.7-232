@@ -1,0 +1,26 @@
+From 8f8db510fc95ff3b8138e6cbbcc5520f184f3db0 Mon Sep 17 00:00:00 2001
+From: Horatiu Vultur <horatiu.vultur@microchip.com>
+Date: Wed, 20 Feb 2019 14:32:01 +0100
+Subject: [PATCH 3/7] com2Sec6List free export
+
+---
+ include/net-snmp/library/snmpUDPIPv6Domain.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/include/net-snmp/library/snmpUDPIPv6Domain.h b/include/net-snmp/library/snmpUDPIPv6Domain.h
+index d61cca6..a29ca8e 100644
+--- a/include/net-snmp/library/snmpUDPIPv6Domain.h
++++ b/include/net-snmp/library/snmpUDPIPv6Domain.h
+@@ -69,6 +69,9 @@ void            netsnmp_udp6_parse_security(const char *token,
+                                             char *param);
+ 
+ NETSNMP_IMPORT
++void            netsnmp_udp6_com2Sec6List_free(void);
++
++NETSNMP_IMPORT
+ int             netsnmp_udp6_getSecName(void *opaque, int olength,
+                                         const char *community,
+                                         int community_len,
+-- 
+2.7.4
+

@@ -1,0 +1,152 @@
+diff --git a/include/libunwind-mips.h b/include/libunwind-mips.h
+index 4591d06..d9bf67d 100644
+--- a/include/libunwind-mips.h
++++ b/include/libunwind-mips.h
+@@ -30,7 +30,7 @@ extern "C" {
+ #endif
+ 
+ #include <inttypes.h>
+-#include <ucontext.h>
++#include <sys/ucontext.h>
+ 
+ #ifdef mips
+ # undef mips
+@@ -103,7 +103,7 @@ typedef enum
+        previous frame.  */
+     UNW_MIPS_CFA,
+ 
+-    UNW_TDEP_LAST_REG = UNW_MIPS_R31,
++    UNW_TDEP_LAST_REG = UNW_MIPS_PC,
+ 
+     UNW_TDEP_IP = UNW_MIPS_R31,
+     UNW_TDEP_SP = UNW_MIPS_R29,
+diff --git a/src/ptrace/_UPT_access_mem.c b/src/ptrace/_UPT_access_mem.c
+index ab93ce3..79bde25 100644
+--- a/src/ptrace/_UPT_access_mem.c
++++ b/src/ptrace/_UPT_access_mem.c
+@@ -32,33 +32,66 @@ _UPT_access_mem (unw_addr_space_t as, unw_word_t addr, unw_word_t *val,
+                  int write, void *arg)
+ {
+   struct UPT_info *ui = arg;
++  int    i, end;
++  unw_word_t tmp_val;
++
+   if (!ui)
+         return -UNW_EINVAL;
+ 
+   pid_t pid = ui->pid;
+ 
+-  errno = 0;
+-  if (write)
++  // Some 32-bit archs have to define a 64-bit unw_word_t.
++  // Callers of this function therefore expect a 64-bit
++  // return value, but ptrace only returns a 32-bit value
++  // in such cases.
++  if (sizeof(long) == 4 && sizeof(unw_word_t) == 8)
++    end = 2;
++  else
++    end = 1;
++
++  for (i = 0; i < end; i++)
+     {
+-      Debug (16, "mem[%lx] <- %lx\n", (long) addr, (long) *val);
++      unw_word_t tmp_addr = i == 0 ? addr : addr + 4;
++
++      errno = 0;
++      if (write)
++        {
++#if __BYTE_ORDER == __LITTLE_ENDIAN
++          tmp_val = i == 0 ? *val : *val >> 32;
++#else
++          tmp_val = i == 0 && end == 2 ? *val >> 32 : *val;
++#endif
++
++          Debug (16, "mem[%lx] <- %lx\n", (long) tmp_addr, (long) tmp_val);
+ #ifdef HAVE_TTRACE
+-#       warning No support for ttrace() yet.
++#         warning No support for ttrace() yet.
+ #else
+-      ptrace (PTRACE_POKEDATA, pid, addr, *val);
+-      if (errno)
+-        return -UNW_EINVAL;
++          ptrace (PTRACE_POKEDATA, pid, tmp_addr, tmp_val);
++          if (errno)
++            return -UNW_EINVAL;
+ #endif
+-    }
+-  else
+-    {
++        }
++      else
++        {
+ #ifdef HAVE_TTRACE
+-#       warning No support for ttrace() yet.
++#         warning No support for ttrace() yet.
+ #else
+-      *val = ptrace (PTRACE_PEEKDATA, pid, addr, 0);
+-      if (errno)
+-        return -UNW_EINVAL;
++          tmp_val = (unsigned long) ptrace (PTRACE_PEEKDATA, pid, tmp_addr, 0);
++
++          if (i == 0)
++              *val = 0;
++
++#if __BYTE_ORDER == __LITTLE_ENDIAN
++          *val |= tmp_val << (i * 32);
++#else
++          *val |= i == 0 && end == 2 ? tmp_val << 32 : tmp_val;
++#endif
++
++          if (errno)
++            return -UNW_EINVAL;
+ #endif
+-      Debug (16, "mem[%lx] -> %lx\n", (long) addr, (long) *val);
++          Debug (16, "mem[%lx] -> %lx\n", (long) tmp_addr, (long) tmp_val);
++        }
+     }
+   return 0;
+ }
+diff --git a/src/ptrace/_UPT_reg_offset.c b/src/ptrace/_UPT_reg_offset.c
+index 68461a2..033594d 100644
+--- a/src/ptrace/_UPT_reg_offset.c
++++ b/src/ptrace/_UPT_reg_offset.c
+@@ -501,6 +501,39 @@ const int _UPT_reg_offset[UNW_REG_LAST + 1] =
+     [UNW_ARM_R14]      = 0x38,
+     [UNW_ARM_R15]      = 0x3c,
+ #elif defined(UNW_TARGET_MIPS)
++    [UNW_MIPS_R0]  =  0,
++    [UNW_MIPS_R1]  =  1,
++    [UNW_MIPS_R2]  =  2,
++    [UNW_MIPS_R3]  =  3,
++    [UNW_MIPS_R4]  =  4,
++    [UNW_MIPS_R5]  =  5,
++    [UNW_MIPS_R6]  =  6,
++    [UNW_MIPS_R7]  =  7,
++    [UNW_MIPS_R8]  =  8,
++    [UNW_MIPS_R9]  =  9,
++    [UNW_MIPS_R10] = 10,
++    [UNW_MIPS_R11] = 11,
++    [UNW_MIPS_R12] = 12,
++    [UNW_MIPS_R13] = 13,
++    [UNW_MIPS_R14] = 14,
++    [UNW_MIPS_R15] = 15,
++    [UNW_MIPS_R16] = 16,
++    [UNW_MIPS_R17] = 17,
++    [UNW_MIPS_R18] = 18,
++    [UNW_MIPS_R19] = 19,
++    [UNW_MIPS_R20] = 20,
++    [UNW_MIPS_R21] = 21,
++    [UNW_MIPS_R22] = 22,
++    [UNW_MIPS_R23] = 23,
++    [UNW_MIPS_R24] = 24,
++    [UNW_MIPS_R25] = 25,
++    [UNW_MIPS_R26] = 26,
++    [UNW_MIPS_R27] = 27,
++    [UNW_MIPS_R28] = 28,
++    [UNW_MIPS_R29] = 29,
++    [UNW_MIPS_R30] = 30,
++    [UNW_MIPS_R31] = 31,
++    [UNW_MIPS_PC]  = 64,
+ #elif defined(UNW_TARGET_SH)
+ #elif defined(UNW_TARGET_AARCH64)
+     [UNW_AARCH64_X0]       = 0x00,

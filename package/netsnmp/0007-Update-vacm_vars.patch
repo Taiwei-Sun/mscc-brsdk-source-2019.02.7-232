@@ -1,0 +1,332 @@
+From 802b95339b10b49a53a2ee1c5163ed303a82380b Mon Sep 17 00:00:00 2001
+From: Horatiu Vultur <horatiu.vultur@microchip.com>
+Date: Wed, 20 Feb 2019 15:05:56 +0100
+Subject: [PATCH 7/7] Update vacm_vars
+
+---
+ agent/mibgroup/mibII/vacm_vars.c | 225 ++++++++++++++++++++++-----------------
+ snmplib/vacm.c                   |   2 +
+ 2 files changed, 128 insertions(+), 99 deletions(-)
+
+diff --git a/agent/mibgroup/mibII/vacm_vars.c b/agent/mibgroup/mibII/vacm_vars.c
+index 2a05743..ffa9f4c 100644
+--- a/agent/mibgroup/mibII/vacm_vars.c
++++ b/agent/mibgroup/mibII/vacm_vars.c
+@@ -67,6 +67,68 @@
+ 
+ static unsigned int vacmViewSpinLock = 0;
+ 
++static oid * vacm_generate_access_OID(oid * prefix, size_t prefixLen, struct vacm_accessEntry *vacm_ptr, size_t * length)
++{
++    oid *indexOid;
++    int i, groupName_len, contextPrefix_len;
++
++    groupName_len = strlen(vacm_ptr->groupName) ? strlen(vacm_ptr->groupName) : 1;
++    contextPrefix_len = strlen(vacm_ptr->contextPrefix) ? strlen(vacm_ptr->contextPrefix) : 1;
++
++    *length = prefixLen
++              + groupName_len
++              + contextPrefix_len
++              + 1 /* One OID for length of securityModel */
++              + 1 /* One OID for length of securityLevel */;
++    indexOid = (oid *) malloc(*length * sizeof(oid));
++    if (indexOid) {
++        memmove(indexOid, prefix, prefixLen * sizeof(oid));
++
++        /* Generate OID for groupName */
++        for (i = 0; i < groupName_len; i++)
++            indexOid[prefixLen + i] = (oid) vacm_ptr->groupName[i];
++
++        /* Generate OID for contextPrefix */
++        indexOid[prefixLen + groupName_len] = contextPrefix_len;
++        for (i = 0; i < contextPrefix_len; i++)
++            indexOid[prefixLen + groupName_len + i] = (oid) vacm_ptr->contextPrefix[i];
++
++        /* Generate OID for securityModel */
++        indexOid[prefixLen + groupName_len + contextPrefix_len] = vacm_ptr->securityModel;
++
++        /* Generate OID for securityLevel */
++        indexOid[prefixLen + groupName_len + contextPrefix_len + 1/*securityModel*/] = vacm_ptr->securityLevel;
++    }
++    return indexOid;
++
++}
++
++static oid * vacm_generate_sec2group_OID(oid * prefix, size_t prefixLen, struct vacm_groupEntry *vacm_ptr, size_t * length)
++{
++    oid *indexOid;
++    int i, securityName_len;
++
++    securityName_len = strlen(vacm_ptr->securityName) ? strlen(vacm_ptr->securityName) : 1;
++
++    *length = prefixLen
++              + securityName_len
++              + 1 /* One OID for length of securityModel */;
++
++    indexOid = (oid *) malloc(*length * sizeof(oid));
++    if (indexOid) {
++        memmove(indexOid, prefix, prefixLen * sizeof(oid));
++
++        /* Generate OID for securityModel */
++        indexOid[prefixLen] = vacm_ptr->securityModel;
++
++        /* Generate OID for securityName */
++        for (i = 0; i < securityName_len; i++)
++            indexOid[prefixLen + 1/*securityModel*/ + i] = (oid) vacm_ptr->securityName[i];
++    }
++    return indexOid;
++
++}
++
+ void
+ init_vacm_vars(void)
+ {
+@@ -148,10 +210,11 @@ var_vacm_sec2group(struct variable * vp,
+                    size_t * var_len, WriteMethod ** write_method)
+ {
+     struct vacm_groupEntry *gp;
+-    oid            *groupSubtree;
++    oid             *groupSubtree, *indexOid;
+     ssize_t         groupSubtreeLen;
+-    oid             secmodel;
++    oid             secmodel, i, rtest1, rtest2;
+     char            secname[VACMSTRINGLEN], *cp;
++    size_t          indexOid_len;
+ 
+     /*
+      * Set up write_method first, in case we return NULL before getting to
+@@ -203,31 +266,27 @@ var_vacm_sec2group(struct variable * vp,
+ 
+         gp = vacm_getGroupEntry(secmodel, secname);
+     } else {
+-        secmodel = *length > 11 ? name[11] : 0;
+-        groupSubtree = name + 12;
+-        groupSubtreeLen = *length - 12;
+-        cp = secname;
+-        while (groupSubtreeLen-- > 0) {
+-            if (*groupSubtree > 255)
+-                return NULL;    /* illegal value */
+-            if (cp - secname > VACM_MAX_STRING)
+-                return NULL;
+-            *cp++ = (char) *groupSubtree++;
+-        }
+-        *cp = 0;
++        rtest1 = snmp_oid_compare(name, *length, vp->name, vp->namelen);
+         vacm_scanGroupInit();
+         while ((gp = vacm_scanGroupNext()) != NULL) {
+-            if (gp->securityModel > secmodel ||
+-                (gp->securityModel == secmodel
+-                 && strcmp(gp->securityName, secname) > 0))
+-                break;
+-        }
+-        if (gp) {
+-            name[11] = gp->securityModel;
+-            *length = 12;
+-            cp = gp->securityName;
+-            while (*cp) {
+-                name[(*length)++] = *cp++;
++            if (indexOid = vacm_generate_sec2group_OID(vp->name, vp->namelen, gp, &indexOid_len)) {
++                if (rtest1 < 1) {
++                    *length = indexOid_len;
++                    memmove(name, indexOid, indexOid_len * sizeof(oid));
++                    free(indexOid);
++                    break;
++                } else {
++                    rtest2 = snmp_oid_compare(name, *length, indexOid, indexOid_len);
++                    if (rtest2 == -1) {
++                        *length = indexOid_len;
++                        memmove(name, indexOid, indexOid_len * sizeof(oid));
++                        free(indexOid);
++                        break;
++                    } else {
++                        free(indexOid);
++                        continue;
++                    }
++                }
+             }
+         }
+     }
+@@ -275,10 +334,11 @@ var_vacm_access(struct variable * vp,
+     oid             secmodel, seclevel;
+     char            groupName[VACMSTRINGLEN] = { 0 };
+     char            contextPrefix[VACMSTRINGLEN] = { 0 };
+-    oid            *op;
++    oid             *op, *indexOid;
+     unsigned long   len, i = 0;
+-    char           *cp;
+-    int             cmp;
++    char            *cp;
++    int             cmp, rtest1, rtest2;
++    size_t          indexOid_len;
+ 
+     /*
+      * Set up write_method first, in case we return NULL before getting to
+@@ -367,79 +427,28 @@ var_vacm_access(struct variable * vp,
+             return NULL;     /* This isn't strictly what was asked for */
+ 
+     } else {
+-        secmodel = seclevel = 0;
+-        groupName[0] = 0;
+-        contextPrefix[0] = 0;
+-        op = name + 11;
+-        if (op >= name + *length) {
+-        } else {
+-            len = *op;
+-            if (len > VACM_MAX_STRING)
+-                return NULL;
+-            cp = groupName;
+-            for (i = 0; i <= len && op < name + *length; i++) {
+-                if (*op > 255) {
+-                    *cp++ = 255;
+-                    ++op;
+-                } else
+-                    *cp++ = (char) *op++;
+-            }
+-            *cp = 0;
+-        }
+-        if (op >= name + *length) {
+-        } else {
+-            len = *op;
+-            if (len > VACM_MAX_STRING)
+-                return NULL;
+-            cp = contextPrefix;
+-            for (i = 0; i <= len && op < name + *length; i++) {
+-                if (*op > 255) {
+-                    *cp++ = 255;
+-                    ++op;
+-                } else
+-                    *cp++ = (char) *op++;
+-            }
+-            *cp = 0;
+-        }
+-        if (op >= name + *length) {
+-        } else {
+-            secmodel = *op++;
+-        }
+-        if (op >= name + *length) {
+-        } else {
+-            seclevel = *op++;
+-        }
++        rtest1 = snmp_oid_compare(name, *length, vp->name, vp->namelen);
+         vacm_scanAccessInit();
+         while ((gp = vacm_scanAccessNext()) != NULL) {
+-            cmp = strcmp(gp->groupName, groupName);
+-            if (cmp > 0)
+-                break;
+-            if (cmp < 0)
+-                continue;
+-            cmp = strcmp(gp->contextPrefix, contextPrefix);
+-            if (cmp > 0)
+-                break;
+-            if (cmp < 0)
+-                continue;
+-            if (gp->securityModel > secmodel)
+-                break;
+-            if (gp->securityModel < secmodel)
+-                continue;
+-            if (gp->securityLevel > seclevel)
+-                break;
+-        }
+-        if (gp) {
+-            *length = 11;
+-            cp = gp->groupName;
+-            do {
+-                name[(*length)++] = *cp++;
+-            } while (*cp);
+-            cp = gp->contextPrefix;
+-            do {
+-                name[(*length)++] = *cp++;
+-            } while (*cp);
+-            name[(*length)++] = gp->securityModel;
+-            name[(*length)++] = gp->securityLevel;
++            if (indexOid = vacm_generate_access_OID(vp->name, vp->namelen, gp, &indexOid_len)) {
++                if (rtest1 < 1) {
++                    *length = indexOid_len;
++                    memmove(name, indexOid, indexOid_len * sizeof(oid));
++                    free(indexOid);
++                    break;
++                } else {
++                    rtest2 = snmp_oid_compare(name, *length, indexOid, indexOid_len);
++                    if (rtest2 == -1) {
++                        *length = indexOid_len;
++                        memmove(name, indexOid, indexOid_len * sizeof(oid));
++                        free(indexOid);
++                        break;
++                    } else {
++                        free(indexOid);
++                        continue;
++                    }
++                }
++            }
+         }
+     }
+ 
+@@ -816,6 +825,11 @@ write_vacmSecurityToGroupStorageType(int action,
+     if (var_val_len > sizeof(long_ret)) {
+         return SNMP_ERR_WRONGLENGTH;
+     }
++    long_ret = *((long *) var_val);
++    if (long_ret < ST_OTHER || long_ret > ST_READONLY) {
++        return SNMP_ERR_WRONGVALUE;
++    }
++
+     if (action == COMMIT) {
+         /*
+          * don't allow creations here 
+@@ -1260,6 +1274,11 @@ write_vacmAccessStorageType(int action,
+                     "write to vacmSecurityToGroupStorageType: bad length\n"));
+         return SNMP_ERR_WRONGLENGTH;
+     }
++    long_ret = *((long *) var_val);
++    if (long_ret < ST_OTHER || long_ret > ST_READONLY) {
++        return SNMP_ERR_WRONGVALUE;
++    }
++
+     if (action == COMMIT) {
+         /*
+          * don't allow creations here 
+@@ -1308,6 +1327,10 @@ write_vacmAccessContextMatch(int action,
+                     "write to vacmAccessContextMatch: bad length\n"));
+         return SNMP_ERR_WRONGLENGTH;
+     }
++    long_ret = *((long *) var_val);
++    if (long_ret < CM_EXACT || long_ret > CM_PREFIX) {
++        return SNMP_ERR_WRONGVALUE;
++    }
+     if (action == COMMIT) {
+         /*
+          * don't allow creations here 
+@@ -1710,6 +1733,7 @@ write_vacmViewStorageType(int action,
+     long            newValue = *((long *) var_val);
+     static long     oldValue;
+     struct vacm_viewEntry *vptr = NULL;
++    static long     long_ret;
+ 
+     if (action == RESERVE1) {
+         if (var_val_type != ASN_INTEGER) {
+@@ -1722,6 +1746,9 @@ write_vacmViewStorageType(int action,
+         if ((vptr = view_parse_viewEntry(name, name_len)) == NULL) {
+             return SNMP_ERR_INCONSISTENTNAME;
+         } else {
++            if (newValue < ST_OTHER || newValue > ST_READONLY) {
++                return SNMP_ERR_WRONGVALUE;
++            }
+             if ((newValue == ST_VOLATILE || newValue == ST_NONVOLATILE) &&
+                 (vptr->viewStorageType == ST_VOLATILE ||
+                  vptr->viewStorageType == ST_NONVOLATILE)) {
+diff --git a/snmplib/vacm.c b/snmplib/vacm.c
+index 606920a..9e73729 100644
+--- a/snmplib/vacm.c
++++ b/snmplib/vacm.c
+@@ -976,6 +976,8 @@ vacm_getAccessEntry(const char *groupName,
+     clen = (int) strlen(contextPrefix);
+     if (clen < 0 || clen > VACM_MAX_STRING)
+         return NULL;
++    if (securityModel < 0 || securityModel > 2147483647)
++        return NULL;
+ 
+     group[0] = glen;
+     strlcpy(group + 1, groupName, sizeof(group) - 1);
+-- 
+2.7.4
+
