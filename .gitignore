@@ -13,5 +13,14 @@
 *.rej
 *~
 *.pyc
+
 *_defconfig/build/*
+*_defconfig/host/
+*_defconfig/images/
+*_defconfig/legal-info/
+*_defconfig/staging
+*_defconfig/target/
+*_defconfig/mscc_stage2_smb_defconfig.log
 *.swp
+*.old
+*.lock
